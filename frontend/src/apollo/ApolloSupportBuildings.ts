@@ -1,0 +1,228 @@
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { MaterialFactory } from './ApolloVehicles';
+import type { SiteRect } from './ApolloSiteLayout';
+
+/** Closed support-building kit, authored in local metres around the site footprint.
+ * Facades suggest rooms and setbacks without opening the collision shell. */
+export function buildSupportBuilding(
+  spec: SiteRect & { height: number }, index: number, mat: MaterialFactory,
+): THREE.Group {
+  const { width: width, depth, height } = spec;
+  const variant = ((index % 4) + 4) % 4;
+  const root = new THREE.Group();
+  root.name = `support-building-${variant}`;
+  const wall = mat('building', 0xc2c2b7, .87);
+  const roof = mat('roof', 0x5f6e6d, .7, .3);
+  const glass = mat('service-window-glass', 0x344b50, .25, .25);
+  const trim = mat('service-building-trim', 0xc4c6b4, .7, .12);
+  const metal = mat('utility-pipe', 0x6d7d76, .65, .5);
+  const recess = mat('support-building-recess', 0x374440, .88, .1);
+  const accent = mat('support-building-brick', 0x916e56, .92, .05);
+  const batches = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3(1, 1, 1);
+  const add = (geometry: THREE.BufferGeometry, material: THREE.Material,
+    x: number, y: number, z: number, ry = 0, rx = 0): void => {
+    matrix.compose(position.set(x, y, z), quaternion.setFromEuler(new THREE.Euler(rx, ry, 0)), scale);
+    const baked = geometry.index ? geometry.toNonIndexed() : geometry;
+    if (baked !== geometry) geometry.dispose();
+    baked.applyMatrix4(matrix);
+    const list = batches.get(material) ?? [];
+    list.push(baked); batches.set(material, list);
+  };
+  const box = (w: number, h: number, d: number, material: THREE.Material,
+    x: number, y: number, z: number, ry = 0): void =>
+    add(new THREE.BoxGeometry(w, h, d), material, x, y, z, ry);
+  const pipe = (radius: number, h: number, material: THREE.Material,
+    x: number, y: number, z: number): void =>
+    add(new THREE.CylinderGeometry(radius, radius, h, 8), material, x, y, z);
+  const pitchedRoof = (w: number, d: number, rise: number, x: number, y: number, z: number): void => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-w / 2, 0); shape.lineTo(w / 2, 0);
+    shape.lineTo(0, rise); shape.closePath();
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false });
+    geometry.translate(0, 0, -d / 2); add(geometry, roof, x, y, z);
+  };
+
+  // Every point of the original solid footprint remains closed. Shadow bands and
+  // proud reveals provide architectural depth without traversable fake entrances.
+  box(width, height, depth, wall, 0, height / 2, 0);
+  box(width + .16, .44, depth + .16, accent, 0, .22, 0);
+  box(width + .24, .12, depth + .24, trim, 0, .5, 0);
+  box(width + .24, .16, depth + .24, recess, 0, height - .14, 0);
+  box(width + .56, .15, depth + .56, trim, 0, height + .015, 0);
+  box(width - .5, .14, depth - .5, roof, 0, height + .14, 0);
+
+  // Parapets cast a narrow edge shadow and hide the flat roof's service runs.
+  const parapetHeight = variant === 1 ? .3 : .48;
+  for (const side of [-1, 1]) {
+    box(width + .1, parapetHeight, .22, wall, 0, height + .18 + parapetHeight / 2, side * (depth / 2 - .06));
+    box(.22, parapetHeight, depth, wall, side * (width / 2 - .06), height + .18 + parapetHeight / 2, 0);
+    box(width + .32, .09, .4, metal, 0, height + .23 + parapetHeight, side * (depth / 2 - .06));
+    box(.4, .09, depth + .12, metal, side * (width / 2 - .06), height + .23 + parapetHeight, 0);
+  }
+
+  for (let face = 0; face < 4; face++) {
+    const angle = face * Math.PI / 2, along = face % 2 ? depth : width;
+    const outside = (face % 2 ? width : depth) / 2;
+    const sine = Math.sin(angle), cosine = Math.cos(angle);
+    const facadeBox = (w: number, h: number, d: number, material: THREE.Material,
+      u: number, y: number, offset: number): void =>
+      box(w, h, d, material, cosine * u + sine * (outside + offset), y,
+        -sine * u + cosine * (outside + offset), angle);
+    const facadePipe = (u: number, y: number, offset: number, h: number): void =>
+      pipe(.055, h, metal, cosine * u + sine * (outside + offset), y,
+        -sine * u + cosine * (outside + offset));
+    const window = (u: number, y: number, w: number, h: number, split = true): void => {
+      facadeBox(w + .2, h + .22, .08, recess, u, y, .042);
+      facadeBox(w, h, .035, glass, u, y, .095);
+      for (const side of [-1, 1]) {
+        facadeBox(.075, h + .16, .1, trim, u + side * (w / 2 + .03), y, .12);
+        facadeBox(w + .22, .08, .15, trim, u, y + side * (h / 2 + .06), .13);
+      }
+      facadeBox(w + .3, .1, .34, metal, u, y - h / 2 - .12, .17);
+      if (split) {
+        facadeBox(.065, h, .075, trim, u, y, .14);
+        facadeBox(w, .055, .075, trim, u, y + h * .14, .14);
+      }
+    };
+    const louver = (u: number, y: number, w = 1.6, h = .95): void => {
+      facadeBox(w + .16, h + .14, .09, trim, u, y, .06);
+      facadeBox(w, h, .06, recess, u, y, .125);
+      for (let row = 0; row < 6; row++) facadeBox(w - .06, .06, .14, metal, u, y - h * .4 + row * h * .16, .17);
+    };
+    // Wall piers, head band and shallow panels give lateral elevations the same
+    // level of authorship as the entrance that faces away from some work yards.
+    facadeBox(along - .7, .18, .16, trim, 0, height - .68, .08);
+    for (const side of [-1, 1]) {
+      facadeBox(.26, height - .7, .16, trim, side * (along / 2 - .48), height / 2 + .13, .08);
+      facadePipe(side * (along / 2 - .84), height / 2 + .08, .17, height - .35);
+      facadeBox(.19, .21, .32, metal, side * (along / 2 - .84), .29, .24);
+    }
+    const hasEntry = face === 0;
+    const hasGarage = face === 2 && (variant === 1 || variant === 2);
+    const bayCount = Math.max(3, Math.floor((along - 2) / 4.6));
+    const spacing = (along - 3.3) / bayCount;
+    const windowHeight = variant === 1 ? 1.0 : variant === 3 ? 1.25 : 1.55;
+    const windowY = variant === 1 ? height - 1.55 : variant === 3 ? height - 1.75 : 3.05;
+    const windowWidth = Math.min(3.25, spacing - .5);
+    for (let bay = 0; bay < bayCount; bay++) {
+      const u = (bay - (bayCount - 1) / 2) * spacing;
+      const openingWidth = hasGarage ? (variant === 2 ? 5.2 : 4.2) : 2.4;
+      if ((hasEntry || hasGarage) && Math.abs(u) < openingWidth / 2 + windowWidth / 2 + .3) continue;
+      window(u, windowY, windowWidth, windowHeight);
+      if (variant === 3 && face % 2) {
+        facadeBox(Math.min(3.45, spacing - .3), .5, .11, accent, u, windowY - 1.01, .07);
+      }
+    }
+    // Hairline expansion joints sit in pier gaps, never over the glazing.
+    for (const u of [-along * .28, along * .28]) {
+      facadeBox(.035, height - .88, .025, metal, u, height / 2 + .12, .016);
+    }
+    if (hasEntry) {
+      facadeBox(2.4, 3.12, .07, recess, 0, 1.91, .045);
+      facadeBox(1.98, 2.78, .045, variant === 1 ? metal : roof, 0, 1.8, .104);
+      for (const side of [-1, 1]) facadeBox(.12, 2.98, .17, trim, side * 1.1, 1.9, .12);
+      facadeBox(2.35, .12, .17, trim, 0, 3.39, .12);
+      facadeBox(.72, .72, .04, glass, -.3, 2.38, .145);
+      facadeBox(.1, .42, .08, metal, .66, 1.8, .18);
+      // This short rain hood remains wholly within the .7 m collider allowance.
+      facadeBox(3.1, .14, .6, metal, 0, 3.55, .3);
+      for (const u of [-1.15, 1.15]) facadeBox(.08, .36, .3, trim, u, 3.34, .18);
+      facadeBox(2.35, .11, .46, metal, 0, .53, .23);
+      // Recessed directory plaque and unlit practical luminaire need no text map.
+      facadeBox(.72, .53, .07, recess, 1.91, 2.22, .09);
+      for (let row = 0; row < 3; row++) facadeBox(.52 - row * .07, .025, .025, trim, 1.91, 2.36 - row * .12, .14);
+      facadeBox(.58, .18, .25, recess, 0, 3.98, .14);
+      facadeBox(.4, .07, .2, trim, 0, 3.89, .15);
+    }
+    if (hasGarage) {
+      const w = variant === 2 ? 5.2 : 4.2;
+      facadeBox(w + .32, 3.77, .08, recess, 0, 2.3, .048);
+      facadeBox(w, 3.5, .055, metal, 0, 2.25, .105);
+      for (const side of [-1, 1]) facadeBox(.16, 3.75, .18, trim, side * (w / 2 + .08), 2.3, .14);
+      facadeBox(w + .35, .2, .26, trim, 0, 4.18, .15);
+      for (let row = 0; row < 13; row++) facadeBox(w - .12, .035, .045, recess, 0, .64 + row * .255, .151);
+      facadeBox(.7, .08, .06, trim, 0, .95, .18);
+    }
+    if (face % 2) {
+      louver(-along * .29, 1.22, variant === 1 ? 2.1 : 1.6);
+      if (variant !== 0) louver(along * .29, 1.22);
+      // Surface conduit follows an existing wall rather than creating obstacles.
+      facadeBox(along * .48, .065, .07, metal, 0, .94, .11);
+      facadeBox(.065, .65, .07, metal, along * .23, 1.23, .11);
+      facadeBox(.38, .46, .16, recess, along * .23, 1.72, .13);
+    }
+  }
+
+  const rooftopUnit = (x: number, z: number, w: number, d: number, h = .96): void => {
+    box(w + .22, .16, d + .22, recess, x, height + .28, z);
+    box(w, h, d, metal, x, height + .36 + h / 2, z);
+    box(w + .14, .1, d + .14, trim, x, height + .42 + h, z);
+    for (let row = 0; row < 5; row++) {
+      box(w - .2, .055, .07, recess, x, height + .52 + row * (h - .18) / 5, z + d / 2 + .025);
+      box(.07, .055, d - .2, recess, x + w / 2 + .025, height + .52 + row * (h - .18) / 5, z);
+    }
+  };
+  if (variant === 0) {
+    // Low office block: broad parapet, two separated service housings and ducts.
+    rooftopUnit(-width * .21, -depth * .12, 3.3, 2.7);
+    rooftopUnit(width * .23, depth * .2, 2.5, 2.1, .75);
+    box(7, .4, .65, metal, -1.3, height + .52, -depth * .12);
+    pipe(.18, 1.3, roof, width * .25, height + .83, -depth * .27);
+    box(.65, .12, .65, trim, width * .25, height + 1.52, -depth * .27);
+  } else if (variant === 1) {
+    // Utility block: an offset raised equipment gallery creates a stepped roof.
+    box(width * .49, 1.25, depth * .48, wall, -width * .13, height + .84, -depth * .1);
+    box(width * .49 + .36, .16, depth * .48 + .36, metal, -width * .13, height + 1.54, -depth * .1);
+    for (let bay = 0; bay < 4; bay++) {
+      const x = -width * .3 + bay * width * .112;
+      box(width * .085, .6, .08, recess, x, height + .96, depth * .14 + .05);
+      for (let row = 0; row < 4; row++) box(width * .08, .045, .11, trim, x, height + .73 + row * .15, depth * .14 + .1);
+    }
+    rooftopUnit(width * .29, depth * .14, 2.8, 2.8, 1.15);
+  } else if (variant === 2) {
+    // Workshop block: two shallow pitched monitor roofs with glazed clerestories.
+    for (const side of [-1, 1]) {
+      const x = side * width * .22, w = width * .28, d = depth * .57;
+      box(w, .72, d, wall, x, height + .58, -depth * .04);
+      pitchedRoof(w + .3, d + .3, .65, x, height + .96, -depth * .04);
+      for (let bay = 0; bay < 4; bay++) {
+        const z = -d * .37 + bay * d * .25 - depth * .04;
+        for (const edge of [-1, 1]) {
+          box(.045, .45, d * .2, glass, x + edge * (w / 2 + .025), height + .66, z);
+          box(.08, .5, .055, trim, x + edge * (w / 2 + .05), height + .66, z - d * .1);
+        }
+      }
+    }
+    rooftopUnit(0, depth * .32, 2.6, 1.8, .7);
+  } else {
+    // Communications block: long central plant duct, paired intake stacks and a
+    // low capped vent gallery give a different silhouette from the office roofs.
+    box(width * .62, .62, 1.7, metal, 0, height + .58, -depth * .13);
+    for (const side of [-1, 1]) {
+      rooftopUnit(side * width * .23, -depth * .13, 2.8, 3.0, 1.1);
+      pipe(.34, 1.4, metal, side * width * .12, height + .91, depth * .24);
+      pipe(.52, .16, recess, side * width * .12, height + 1.62, depth * .24);
+      pipe(.55, .1, trim, side * width * .12, height + 1.75, depth * .24);
+    }
+    box(width * .42, .18, 2.2, trim, 0, height + .98, -depth * .13);
+  }
+
+  let triangles = 0;
+  for (const [material, geometries] of batches) {
+    const geometry = mergeGeometries(geometries, false);
+    geometries.forEach(part => part.dispose());
+    if (!geometry) throw new Error('Support-building material batch could not be merged.');
+    geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = `support-building-${variant}-${material.name || material.uuid}`;
+    mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
+    triangles += geometry.getAttribute('position').count / 3;
+  }
+  root.userData.supportBuilding = { variant, footprint: { width, depth, height }, materials: batches.size, triangles };
+  return root;
+}

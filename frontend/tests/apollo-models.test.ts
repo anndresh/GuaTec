@@ -6,6 +6,56 @@ import { buildCar, CAR_SPECS } from '../src/apollo/ApolloVehicles';
 import {STAND_DESIGNS} from '../src/apollo/ApolloStandDesigns';
 import {buildCrawler} from '../src/apollo/ApolloCrawler';
 import {buildTrackingDish} from '../src/apollo/ApolloTrackingDish';
+import {buildAssemblyBuilding} from '../src/apollo/ApolloAssemblyBuilding';
+import {buildSupportBuilding} from '../src/apollo/ApolloSupportBuildings';
+import {SITE_BUILDINGS} from '../src/apollo/ApolloSiteLayout';
+
+test('architectural detail fits closed building proxies with shared materials and bounded geometry', () => {
+  const materials = new Map<string, THREE.MeshStandardMaterial>();
+  const factory = (name: string, color: number, roughness = .8, metalness = 0) => {
+    if (!materials.has(name)) materials.set(name, new THREE.MeshStandardMaterial({color, roughness, metalness}));
+    return materials.get(name)!;
+  };
+  const inspect = (model: THREE.Group, maxBatches: number, maxTriangles: number) => {
+    const used = new Set<THREE.Material>(); let triangles = 0;
+    model.traverse(node => {
+      if (!(node instanceof THREE.Mesh)) return;
+      assert.ok(!Array.isArray(node.material));
+      const material = node.material as THREE.MeshStandardMaterial;
+      assert.ok([...materials.values()].includes(material));
+      assert.equal(material.map, null, 'architectural detail allocates no textures');
+      assert.ok(!used.has(material), 'one rigid batch per material'); used.add(material);
+      assert.equal(node.geometry.groups.length, 0);
+      const vertices = node.geometry.getAttribute('position');
+      triangles += (node.geometry.index?.count ?? vertices.count) / 3;
+      for (const attribute of Object.values(node.geometry.attributes)) {
+        for (const value of attribute.array) assert.ok(Number.isFinite(value));
+      }
+      node.geometry.dispose();
+    });
+    assert.ok(used.size <= maxBatches); assert.ok(triangles <= maxTriangles);
+    return triangles;
+  };
+  for (const [index, spec] of SITE_BUILDINGS.entries()) {
+    const model = buildSupportBuilding(spec, index, factory), bounds = new THREE.Box3().setFromObject(model);
+    assert.ok(bounds.min.y >= -.01 && bounds.max.y <= spec.height + 2.1);
+    assert.ok(bounds.min.x >= -spec.width / 2 - .7 && bounds.max.x <= spec.width / 2 + .7, 'side details stay inside the existing collider');
+    assert.ok(bounds.min.z >= -spec.depth / 2 - .7 && bounds.max.z <= spec.depth / 2 + .7, 'rain hoods and back details stay inside the collider');
+    inspect(model, 7, 7500);
+  }
+  assert.ok(materials.size <= 7, 'four variants use one shared seven-material kit');
+  const near = buildAssemblyBuilding(factory), far = buildAssemblyBuilding(factory, false);
+  const nearBounds = new THREE.Box3().setFromObject(near), farBounds = new THREE.Box3().setFromObject(far);
+  for (const bounds of [nearBounds, farBounds]) {
+    assert.ok(bounds.min.y >= -1e-5 && bounds.max.y >= 160 && bounds.max.y <= 162.1);
+    assert.ok(bounds.max.x <= 80.1 && bounds.min.x >= -80.1);
+    assert.ok(bounds.max.z <= 68.1 && bounds.min.z >= -68.1);
+  }
+  assert.ok(Math.abs(nearBounds.max.y - farBounds.max.y) < .3, 'LOD preserves the skyline');
+  const nearTriangles = inspect(near, 6, 8000), farTriangles = inspect(far, 3, 500);
+  assert.ok(farTriangles < nearTriangles / 10, 'distant architecture drops small details');
+  materials.forEach(material => material.dispose());
+});
 
 test('ground support machinery preserves its footprint and bounded untextured batches', () => {
   const materials = new Map<string, THREE.MeshStandardMaterial>();

@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { buildCar, poseVehicle, CAR_SPECS, type CarKind } from './ApolloVehicles';
+import { buildCar, poseVehicle, CAR_SPECS, type CarKind, type MaterialFactory } from './ApolloVehicles';
 import { buildBench, type Kit, type StationKind } from './ApolloFurniture';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { apolloText } from './ApolloLocale';
@@ -14,6 +14,8 @@ import {standIndicatorPosition,standUsesPower} from './ApolloStandDesigns';
 import {batchCharacterMeshes} from './ApolloCharacterBatches';
 import {buildTrackingDish} from './ApolloTrackingDish';
 import {buildCrawler} from './ApolloCrawler';
+import {buildAssemblyBuilding} from './ApolloAssemblyBuilding';
+import {buildSupportBuilding} from './ApolloSupportBuildings';
 
 export type ApolloQuality = 'low' | 'medium' | 'high';
 type Mode = 'intro' | 'crew' | 'launch' | null;
@@ -278,10 +280,15 @@ export class ApolloWorld {
   }
   private flushStatic(): void {
     for (const [mat, geometries] of this.staticBuffers) {
-      const merged = mergeGeometries(geometries, false);
+      // Authored kits can already be merged/non-indexed while the small world
+      // primitives retain indices. Canonicalize mixed buckets before sharing a draw.
+      const mixed = geometries.some(g => !!g.index !== !!geometries[0].index);
+      const buffers = mixed ? geometries.map(g => g.index ? g.toNonIndexed() : g) : geometries;
+      const merged = mergeGeometries(buffers, false);
       if (merged) {
         const mesh = new THREE.Mesh(merged, mat); mesh.castShadow = true; mesh.receiveShadow = true; this.scene.add(mesh);
       }
+      if (mixed) buffers.forEach((buffer, index) => { if (buffer !== geometries[index]) buffer.dispose(); });
       for (const g of geometries) g.dispose();
     }
     this.staticBuffers.clear();
@@ -517,28 +524,19 @@ export class ApolloWorld {
   private buildBuildings(): void {
     const wall = this.material('building', 0xc2c2b7, 0.87);
     const roof = this.material('roof', 0x5f6e6d, 0.7, 0.3);
-    const dark = this.material('windows', 0x3f6878, 0.3, 0.5);
-    const vab = new THREE.Group(); vab.position.set(-1000, 0, -100);
-    this.box(158, 160, 134, wall, 0, 80, 0, vab);
-    this.box(160, 2, 136, roof, 0, 161, 0, vab);
-    for (let i = 0; i < 6; i++) this.box(13, 130, 0.3, this.material('vab-door', 0x929e9f), -60 + i * 24, 65, 67.2, vab);
-    for (let y = 4; y < 155; y += 4) this.box(158, 0.1, 0.2, roof, 0, y, 67.4, vab);
+    const factory: MaterialFactory = (name, color, roughness, metalness) => this.material(name, color, roughness, metalness);
+    const vab = buildAssemblyBuilding(factory);
     const vabSub = this.textPlane('VEHICLE ASSEMBLY BUILDING', 105, 5, '#31434b', false); vabSub.position.set(0, 151, 67.5); vab.add(vabSub);
     const vabLod = new THREE.LOD();
-    vab.position.set(0, 0, 0); this.mergeAuthored(vab);
-    const distantVab = new THREE.Group();
-    this.box(158, 160, 134, wall, 0, 80, 0, distantVab);
-    this.box(160, 2, 136, roof, 0, 161, 0, distantVab);
-    vabLod.addLevel(vab, 0); vabLod.addLevel(distantVab, 2300); vabLod.position.set(-1000, 0, -100); this.scene.add(vabLod);
+    vabLod.name = 'vehicle-assembly-building';
+    vabLod.addLevel(vab, 0); vabLod.addLevel(buildAssemblyBuilding(factory, false), 2300, .1);
+    vabLod.position.set(-1000, 0, -100); this.scene.add(vabLod);
     // Support buildings form solid closed shells: no doors/interiors are traversable.
-    for (const {x,z,width:w,depth:d,height:h} of SITE_BUILDINGS) {
-      this.box(w, h, d, wall, x, h / 2, z);
-      this.box(w + 1, 0.35, d + 1, roof, x, h, z);
+    for (const [index, spec] of SITE_BUILDINGS.entries()) {
+      const {x, z, width:w, depth:d} = spec;
+      const model = buildSupportBuilding(spec, index, factory); model.position.set(x, 0, z);
+      this.addStaticModel(model);
       this.colliders.push({ x, z, w: w / 2 + 0.7, d: d / 2 + 0.7 });
-      for (let i = 0; i < 4; i++) this.box(2.7, 1.5, 0.12, dark, x - 8 + i * 5, 3, z + d / 2 + 0.1);
-      this.box(2, 2.7, 0.13, roof, x, 1.4, z + d / 2 + 0.12);
-      this.box(2, 1.3, 2, roof, x + 4, h + 0.7, z);
-      this.cylinder(0.05, 0.05, 9, roof, x - 4, h + 4.5, z);
     }
     // Red/white weather mast and dish belong to support operations, not modern pad hardware.
     for (let i = 0; i < 7; i++) this.box(0.6, 2, 0.6, i % 2 ? wall : this.material('red', 0x9f3d32), 91, 1 + i * 2, 270);
@@ -678,39 +676,11 @@ export class ApolloWorld {
       }
     }
     // Low drainage aprons and pipe work give the service buildings a functional edge.
-    for(const {x,z,width,depth,height}of SITE_BUILDINGS) {
+    for(const {x,z}of SITE_BUILDINGS) {
       this.box(25,.12,3,grit,x,.015,z+12);
       for(let i=0;i<4;i++)this.box(.08,.09,2.8,metal,x-11+i*.4,.13,z+12);
       this.box(4,.55,.75,metal,x+8,.3,z-10);
       for(let i=0;i<10;i++)this.box(.12,.6,.8,curb,x+6.1+i*.4,.31,z-10);
-      // Rain hood, recessed entrance and horizontal window mullions establish
-      // the service-building scale without more imported assets.
-      const glass=this.material('service-window-glass',0x344b50,.25,.25);
-      const ivory=this.material('service-building-trim',0xc4c6b4,.7,.12);
-      this.box(3.1,.14,1.8,metal,x,3.02,z+depth/2+.8);
-      for(const dx of[-1.14,1.14])this.box(.12,2.6,.16,ivory,x+dx,1.46,z+depth/2+.18);
-      for(let i=0;i<4;i++) {
-        this.box(2.5,1.2,.06,glass,x-8+i*5,2.93,z+depth/2+.19);
-        this.box(2.6,.065,.075,ivory,x-8+i*5,2.93,z+depth/2+.23);
-        this.box(.065,1.25,.075,ivory,x-8+i*5,2.93,z+depth/2+.23);
-      }
-      // The side elevations form the backdrop to the engineering/radio yards.
-      // Clerestory glazing, joints, rain pipes and low louvers give these visible
-      // walls a human scale while remaining inside the existing solid footprint.
-      const joint=this.material('roof',0x5f6e6d,.7,.3);
-      for(const side of[-1,1]){
-        const face=x+side*(width/2+.08);
-        for(const offset of[-.32,-.08,.16,.40]){
-          const wz=z+depth*offset;
-          this.box(.06,1.15,2.1,glass,face,3.15,wz);
-          for(const wy of[2.55,3.75])this.box(.10,.07,2.25,ivory,face+side*.04,wy,wz);
-          this.box(.10,1.2,.055,ivory,face+side*.04,3.15,wz);
-        }
-        for(const offset of[-.43,.04])this.box(.025,height-.3,.035,joint,face-side*.045,height/2,z+depth*offset);
-        this.cylinder(.045,.045,height-.2,metal,face+.03*side,height/2,z-depth/2+.3);
-        this.box(.07,1.05,1.45,joint,face,.94,z+depth*.03);
-        for(let slat=0;slat<6;slat++)this.box(.10,.035,1.32,metal,face+side*.045,.57+slat*.15,z+depth*.03);
-      }
     }
   }
   private buildClouds(): void {
