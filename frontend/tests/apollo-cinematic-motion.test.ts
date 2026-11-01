@@ -47,9 +47,13 @@ test('transport brake dive and brake lamps follow deceleration and replay exactl
   const mats:THREE.MeshStandardMaterial[]=[];
   const vehicle=buildCar(CAR_SPECS.van,{kind:'van',paint:0xd9d6bd,periodStyle:true},(_name,color,roughness,metalness)=>{const mat=new THREE.MeshStandardMaterial({color,roughness,metalness});mats.push(mat);return mat});
   const rig=vehicle.userData.vehicleRig as VehicleRig;
-  poseVehicle(vehicle,20,2,22,false,-.8);assert.ok(vehicle.rotation.x<0);assert.equal(rig.taillamp.emissiveIntensity,.55);
-  const pose=vehicle.rotation.toArray();poseVehicle(vehicle,4,2,4,false,.8);assert.ok(vehicle.rotation.x>0);assert.equal(rig.taillamp.emissiveIntensity,.18);
-  poseVehicle(vehicle,20,2,22,false,-.8);assert.deepEqual(vehicle.rotation.toArray(),pose);
-  poseVehicle(vehicle,20,2,22,true,-.8);assert.equal(vehicle.rotation.x,0);assert.equal(vehicle.rotation.z,0);assert.equal(rig.wheels[0].rotation.x,-50);
-  vehicle.traverse(node=>{if(node instanceof THREE.Mesh)node.geometry.dispose()});mats.forEach(m=>m.dispose());
+  poseVehicle(vehicle,20,2,22,false,-.8);assert.ok(rig.body.rotation.x<0);assert.equal(rig.taillamp.emissiveIntensity,.55);
+  vehicle.updateMatrixWorld(true);
+  for(const wheel of rig.wheels){const bounds=new THREE.Box3().setFromObject(wheel,true);assert.ok(Math.abs(bounds.min.y)<.006,'Braking must not lift or sink the tyres.');}
+  assert.equal(vehicle.rotation.x,0);assert.equal(vehicle.rotation.z,0);assert.equal(vehicle.position.y,0);
+  const pose={rotation:rig.body.rotation.toArray(),position:rig.body.position.toArray()};
+  poseVehicle(vehicle,4,2,4,false,.8);assert.ok(rig.body.rotation.x>0);assert.equal(rig.taillamp.emissiveIntensity,.18);
+  poseVehicle(vehicle,20,2,99,false,-.8);assert.deepEqual({rotation:rig.body.rotation.toArray(),position:rig.body.position.toArray()},pose);
+  poseVehicle(vehicle,20,2,22,true,-.8);assert.equal(rig.body.rotation.x,0);assert.equal(rig.body.rotation.z,0);assert.equal(rig.body.position.y,rig.bodyRestHeight);assert.equal(rig.wheels[0].rotation.x,-50);
+  vehicle.traverse(node=>{if(node instanceof THREE.Mesh)node.geometry.dispose()});new Set([...mats,rig.headlamp,rig.taillamp]).forEach(m=>m.dispose());
 });

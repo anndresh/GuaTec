@@ -3,6 +3,10 @@ import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeom
 
 export interface VehicleRig {
   wheels: THREE.Group[];
+  /** Sprung mass; road contacts and wheel odometry remain on the chassis root. */
+  body: THREE.Group;
+  bodyRestHeight: number;
+  wheelbase: number;
   wheelRadius: number;
   headlamp: THREE.MeshStandardMaterial;
   taillamp: THREE.MeshStandardMaterial;
@@ -14,11 +18,14 @@ export function poseVehicle(root: THREE.Group, distance: number, speed: number, 
   if (!rig) return;
   for (const wheel of rig.wheels) wheel.rotation.x = -distance / rig.wheelRadius;
   const rolling = Math.min(1, Math.abs(speed) / 2);
-  root.position.y = reducedMotion ? 0 : Math.sin(time * 7) * .008 * rolling;
-  // Small nose lift under acceleration and brake dive, derived from the same
-  // seekable trajectory as odometry rather than accumulated spring state.
-  root.rotation.x = reducedMotion ? 0 : THREE.MathUtils.clamp(acceleration * .008, -.015, .015);
-  root.rotation.z = reducedMotion ? 0 : Math.sin(time * 3.5) * .002 * rolling;
+  // Sample the same shallow road profile at both axles. Sampling distance rather
+  // than accumulated frame time makes a cinematic seek reproduce its suspension.
+  const road = (s: number): number => Math.sin(s * 1.7) * .004 + Math.sin(s * .47) * .003;
+  const front = road(distance + rig.wheelbase / 2), rear = road(distance - rig.wheelbase / 2);
+  root.position.y = 0; root.rotation.x = 0; root.rotation.z = 0;
+  rig.body.position.y = rig.bodyRestHeight + (reducedMotion ? 0 : (front + rear) * .5 * rolling);
+  rig.body.rotation.x = reducedMotion ? 0 : THREE.MathUtils.clamp(acceleration * .008 + (front - rear) * rolling / rig.wheelbase, -.02, .02);
+  rig.body.rotation.z = reducedMotion ? 0 : Math.sin(distance * .65) * .002 * rolling;
   rig.headlamp.emissiveIntensity = rolling ? .45 : .18;
   rig.taillamp.emissiveIntensity = Math.abs(speed) < .2 || acceleration < -.1 ? .55 : .18;
 }
@@ -224,7 +231,9 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
         const hub=new THREE.Mesh(new THREE.SphereGeometry(r*.55,12,8),chrome);hub.scale.set(.22,1,1);hub.position.x=side*.15;wheel.add(hub);
       }
       for (const m of wheel.children) if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; }
-      const arch = new THREE.Mesh(new THREE.CircleGeometry(r * 1.2, 28), trim);
+      // Only the upper wheel well is backed: a full disc would extend below
+      // the tyre and visibly penetrate the road by twenty percent of its radius.
+      const arch = new THREE.Mesh(new THREE.CircleGeometry(r * 1.2, 28, 0, Math.PI), trim);
       arch.rotation.y = side * Math.PI / 2; arch.position.set(side * (flank(r) + 0.006), r, axle); group.add(arch);
       const lip = add(new THREE.TorusGeometry(r * 1.08, .024, 5, 24, Math.PI), chrome, side * (flank(r) + .024), r, axle);
       lip.rotation.y = side * Math.PI / 2;
@@ -233,6 +242,18 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
         const groove = new THREE.Mesh(new THREE.TorusGeometry(r * .985,.008,4,24),trim);
         groove.rotation.y=Math.PI/2;groove.position.x=offset;wheel.add(groove);
       }
+      // Broken shoulder tread and valve stem reveal rolling direction even on
+      // the period hubcaps. They are merged into the existing wheel materials.
+      for (let n = 0; n < 24; n++) {
+        const angle = n * Math.PI / 12;
+        for (const shoulder of [-1, 1]) {
+          const block = new THREE.Mesh(new THREE.BoxGeometry(.065, .009, .027), tire);
+          block.position.set(shoulder * .078, Math.cos(angle) * (r - .006), Math.sin(angle) * (r - .006));
+          block.rotation.x = angle; wheel.add(block);
+        }
+      }
+      const valve = new THREE.Mesh(new THREE.CylinderGeometry(.009,.009,.035,6),trim);
+      valve.rotation.z = Math.PI / 2; valve.position.set(side * .16, r * .45, r * .36); wheel.add(valve);
     }
   }
 
@@ -278,6 +299,52 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   }
   box(.014,.15,.18,chrome,-flank(belt-.25)-.01,belt-.25,half-.62);
 
+  // Mounted mirrors, bumper overriders and wing indicators belong to the
+  // assembled body rather than floating away from its painted silhouette.
+  for (const side of [-1, 1]) {
+    const mirrorS = spec.windshieldBase - .2, mirrorY = belt + .12;
+    box(.12,.025,.035,chrome,side*(flank(mirrorY)+.025),mirrorY-.04,Z(mirrorS));
+    box(.075,.20,.12,chrome,side*width*.31,gc+.17,noseZ-.03);
+    box(.075,.20,.12,chrome,side*width*.31,gc+.17,tailZ+.03);
+    const flankX = side*(flank(belt-.2)+.016);
+    box(.018,.026,.25,trim,flankX,belt-.12,Z(.1));
+    box(.028,.025,.20,chrome,flankX+side*.012,belt-.08,Z(.1));
+    // Rocker-panel wear and stamped lower-door crease, using existing materials.
+    box(.013,.018,spec.wheelbase*.67,chrome,side*(flank(gc+.24)+.014),gc+.24,0);
+    box(.018,.065,.19,plate,side*(flank(belt-.03)+.023),belt-.03,Z(half-.32));
+  }
+
+  if (options.kind === 'van') {
+    // Twin rear service doors, external hinges and a rubber-tread loading step.
+    // Generic Kennedy support hardware, not a claim of a specific vehicle replica.
+    const doorTop = top - spec.roofThickness - .06;
+    const roofSpan = spec.roofFront - spec.roofRear - .2, roofCenter = Z((spec.roofFront + spec.roofRear) / 2);
+    box(.018,doorTop-gc-.28,.018,trim,0,(doorTop+gc+.28)/2,tailZ+.009);
+    box(width*.76,.018,.018,trim,0,gc+.31,tailZ+.009);
+    for (const side of [-1,1]) {
+      const hingeX = side*width*.36;
+      for (const y of [gc+.58,doorTop-.25]) {
+        box(.15,.065,.027,chrome,hingeX,y,tailZ+.025);
+        add(new THREE.CylinderGeometry(.022,.022,.13,8),chrome,hingeX,y,tailZ+.05);
+      }
+      box(.035,.16,.035,chrome,side*.14,belt-.08,tailZ+.04);
+      box(.025,.06,.028,trim,side*.14,belt-.21,tailZ+.04);
+      // Side-door tracks, lower access step, louvred utility compartment.
+      box(.022,.025,1.38,chrome,side*(width*.5+.013),belt+.05,.2);
+      box(.10,.06,1.05,chrome,side*width*.48,gc+.05,.12);
+      for(let vent=0;vent<6;vent++)box(.018,.025,.38,trim,side*(flank(belt-.32)+.02),belt-.45+vent*.052,half-.66);
+      box(.035,.035,roofSpan,chrome,side*width*.46*(1-spec.tumblehome),top-.03,roofCenter);
+      for(let rib=0;rib<3;rib++)box(.028,.018,roofSpan*.92,body,side*(.24+rib*.14),top+.022,roofCenter);
+    }
+    box(width*.72,.07,.26,chrome,0,gc+.02,half+.13);
+    for(let n=0;n<7;n++)box(width*.66,.009,.013,trim,0,gc+.059,half+.025+n*.033);
+    // Exhaust tip is recessed above the step instead of a loose tube below ground.
+    const exhaust=add(new THREE.CylinderGeometry(.042,.042,.20,10),chrome,-width*.34,gc+.02,half-.05);
+    exhaust.rotation.x=Math.PI/2;
+    const mouth=add(new THREE.CircleGeometry(.029,10),trim,-width*.34,gc+.02,half+.053);
+    mouth.rotation.y=0;
+  }
+
   if (options.decal) {
     const decal = new THREE.MeshBasicMaterial({ map: options.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const size = Math.min(spec.height * 0.38, 0.82);
@@ -290,7 +357,16 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   }
   // Expose only the small amount of mutable state needed by the world animation
   // pass. The geometry and materials remain owned by this factory.
-  group.userData.vehicleRig = { wheels: wheelGroups, wheelRadius: spec.wheelRadius, headlamp, taillamp } satisfies VehicleRig;
+  const sprungBody = new THREE.Group(); sprungBody.name = 'vehicle-sprung-body';
+  const bodyRestHeight = spec.belt * .75;
+  sprungBody.position.y = bodyRestHeight;
+  // Keep every tyre on the ground while the body reacts to acceleration. The
+  // local pivot is near the belt line so bumper ends do not swing about ground.
+  for(const child of [...group.children]) if(!wheelGroups.includes(child as THREE.Group)) {
+    child.position.y -= bodyRestHeight; sprungBody.add(child);
+  }
+  group.add(sprungBody);
+  group.userData.vehicleRig = { wheels: wheelGroups, body: sprungBody, bodyRestHeight, wheelbase: spec.wheelbase, wheelRadius: spec.wheelRadius, headlamp, taillamp } satisfies VehicleRig;
   batchRigidParts(group);
   return group;
 }
