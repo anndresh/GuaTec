@@ -24,5 +24,5 @@ try{
   await capture('released',[-18,73,18],[-6,68,-2]);
  }
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{world.setCinematic('crew',0);world.update(0);world.setQuality('medium')});await capture('upper-mobile',[-20,110,24],[-5,103,-1]);
- assert.equal(metrics.pad.rocketHeightMeters,110.6);assert.equal(metrics.pad.colliders,65);assert.deepEqual(errors,[]);await writeFile(resolve(out,'report.json'),JSON.stringify({baseline,attachments,metrics,errors},null,2));console.log('PASS: authored arm views, unchanged scale/collisions'+(baseline?' (baseline).':', seven skin connections, covered upper passage and deterministic swing-away.'));
+ assert.equal(metrics.pad.rocketHeightMeters,110.6);assert.equal(metrics.pad.colliders,67);assert.deepEqual(errors,[]);await writeFile(resolve(out,'report.json'),JSON.stringify({baseline,attachments,metrics,errors},null,2));console.log('PASS: authored arm views, unchanged scale/collisions'+(baseline?' (baseline).':', seven skin connections, covered upper passage and deterministic swing-away.'));
 }catch(e){await page.screenshot({path:resolve(out,'failure.png')});throw e}finally{await browser.close()}

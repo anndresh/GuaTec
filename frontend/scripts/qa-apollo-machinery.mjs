@@ -27,7 +27,7 @@ try{
   });if(!hit)missing.push(y)}
   return{missing,height:world.diagnostics().rocketHeightMeters,colliders:world.diagnostics().colliders};
  });
- assert.deepEqual(continuity.missing,[],'Escape assembly reaches the capsule without a floating gap.');assert.equal(continuity.height,110.6);assert.equal(continuity.colliders,65);
+ assert.deepEqual(continuity.missing,[],'Escape assembly reaches the capsule without a floating gap.');assert.equal(continuity.height,110.6);assert.equal(continuity.colliders,67);
  for(const[name,position,target]of[['dish',[94,9,269],[83,7,254]],['dish-rear',[72,10,239],[83,7,254]],['crawler',[-189,20,96],[-235,4,52]],['saturn',[45,112,72],[0,92,0]]]){metrics[name]=await page.evaluate(({position,target})=>frame(position,target),{position,target});await page.screenshot({path:resolve(out,'after-'+name+'.png')})}
  for(const[name,position,target]of[['exploration',[-35,3.35,141.8],[-35,1.35,136]],['communications',[87,3.2,256],[83,1.4,250]]]){
   await page.evaluate(()=>{world.playerRoot.visible=true;world.setSuspended(false);world.update(1/60)});

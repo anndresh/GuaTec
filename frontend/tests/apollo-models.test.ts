@@ -150,6 +150,17 @@ test('stand proxies cover side equipment while leaving the approach open',()=>{
   }
 });
 
+test('instrument feet and patch-frame rear supports stay inside their physical footprints',()=>{
+  const covered=(kind:StandModelKind,x:number,z:number)=>standCollisionProxies(kind,0,0).some(c=>Math.abs(x-c.x)<=c.w&&Math.abs(z-c.z)<=c.d);
+  for(const kind of ['survey','tracking'] as const)for(let i=0;i<3;i++){
+    const a=i*Math.PI*2/3,x=-2.13+Math.cos(a)*.6,z=-.05+Math.sin(a)*.6;
+    assert.ok(covered(kind,x,z),`${kind}: the tripod foot itself blocks passage`);
+  }
+  for(const x of[-1.39,1.29])assert.ok(covered('cables',x,-1.3),'patch-frame ground brace blocks passage');
+  for(const x of[2.15,2.55])for(const z of[-.92,-.52])assert.ok(covered('weather',x,z),'mast flange fits its proxy');
+  for(const kind of Object.keys(STAND_DESIGNS) as StandModelKind[])assert.equal(covered(kind,0,2.7),false,`${kind}: working approach remains open`);
+});
+
 test('period support vehicles retain their wheelbase and fit their collision dimensions',()=>{
   const materials=new Map<string,THREE.MeshStandardMaterial>();
   const factory=(name:string,color:number,roughness=.8,metalness=0)=>{if(!materials.has(name))materials.set(name,new THREE.MeshStandardMaterial({color,roughness,metalness}));return materials.get(name)!;};

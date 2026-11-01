@@ -15,11 +15,14 @@ export function standCollisionProxies(kind: StandModelKind, x: number, z: number
   if(standHasIdentityPost(kind))colliders.push({x:x-1.5,z:z-1.02,w:.05,d:.05});
   if(kind==='telemetry')colliders.push({x:x+2.02,z:z-.35,w:.4,d:.4});
   if(kind==='sequence')colliders.push({x:x+2.12,z:z-.35,w:.4,d:.48});
-  if(kind==='flight-plan')colliders.push({x:x-2.35,z:z-.85,w:.4,d:.3});
+  if(kind==='flight-plan')colliders.push({x:x-2.35,z:z-1.03,w:.46,d:.12});
   if(kind==='radio')colliders.push({x:x+2.25,z:z-.85,w:.12,d:.12});
-  if(kind==='weather')colliders.push({x:x+2.35,z:z-.72,w:.12,d:.12},{x:x-2.35,z:z-.55,w:.28,d:.28});
+  if(kind==='weather')colliders.push({x:x+2.35,z:z-.72,w:.23,d:.23},{x:x-2.35,z:z-.55,w:.35,d:.32});
   if(kind==='beacons')for(const dx of[-2.25,0,2.25])colliders.push({x:x+dx,z:z-1.6,w:.2,d:.2});
-  if(kind==='survey'||kind==='tracking')colliders.push({x:x-2.13,z:z-.05,w:.4,d:.5});
+  // Include the feet, not just the elevated instrument body. The rear braces of
+  // the patch frame also touch the ground behind its shallow desk.
+  if(kind==='survey'||kind==='tracking')colliders.push({x:x-2.13,z:z-.05,w:.68,d:.60});
+  if(kind==='cables')for(const dx of[-1.39,1.29])colliders.push({x:x+dx,z:z-1.3,w:.09,d:.09});
   return colliders;
 }
 
@@ -101,7 +104,7 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   };
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, ry = 0) => put(new THREE.BoxGeometry(w, h, d), material, x, y, z, 0, ry);
   const cyl = (r: number, h: number, material: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => put(new THREE.CylinderGeometry(r, r, h, 12), material, x, y, z, rx, 0, rz);
-  const tube = (points: number[][], radius: number, material: THREE.Material) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2]))), 18, radius, 6, false), material, 0, 0, 0);
+  const tube = (points: number[][], radius: number, material: THREE.Material) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2]))), points.length===2?1:Math.min(18,(points.length-1)*3), radius, 6, false), material, 0, 0, 0);
   const sheet = (cell: number, w: number, h: number, x: number, y: number, z: number, rx = 0, ry = 0) => {
     const geometry = new THREE.PlaneGeometry(w, h), uv = geometry.getAttribute('uv');
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (cell % 4 + .025 + uv.getX(i) * .95) / 4, (3 - Math.floor(cell / 4) + .025 + uv.getY(i) * .95) / 4);
@@ -203,6 +206,39 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   }
   box(design.width,.11,depth,dark,tx,1.04,.04);box(design.width-.04,.055,depth-.04,paint,tx,1.12,.04);
   box(design.width-.25,.04,.045,steel,tx,1.17,depth/2+.025);box(design.width-.3,.07,.07,steel,tx,.37,-depth/2+.08);
+  // Bolted angle-frame benches: readable side gussets, levelling pads and a
+  // rear diagonal load path. All details remain in the original material batches.
+  for(const side of[-1,1]){
+    const x=tx+side*half;
+    for(const z of[-depth/2+.12,depth/2-.12]){
+      if(kind!=='weather'){
+        cyl(.065,.04,dark,x,.09,z);cyl(.023,.07,steel,x,.145,z);
+      }
+      box(.13,.18,.025,paint,x,.91,z+.052);
+      for(const y of[.86,.96])cyl(.016,.018,steel,x,y,z+.074,Math.PI/2);
+    }
+    tube([[x,.35,-depth/2+.12],[x,.91,depth/2-.12]],.018,steel);
+  }
+  if(['sequence','telemetry','radio','cables'].includes(kind)){
+    // The console has actual electronics below its instruments, with a removable
+    // service door, ventilation slots and a sheltered loom rather than an empty desk.
+    const width=kind==='telemetry'?2.54:kind==='radio'?2.24:1.12;
+    box(width,.63,.45,paint,tx,.69,-.30);
+    box(width-.10,.53,.025,dark,tx,.69,-.057);
+    box(width-.17,.47,.029,cream,tx,.69,-.038);
+    for(const side of[-1,1])for(const y of[.51,.86])cyl(.017,.015,steel,tx+side*(width/2-.12),y,-.014,Math.PI/2);
+    handle(tx,.68,-.012,.24,.055);
+    for(let i=0;i<6;i++)box(width*.28,.014,.013,dark,tx-width*.24,.52+i*.052,-.014);
+    // Rear plug panel, connectors with strain relief, and secured cable routes.
+    box(.64,.22,.027,dark,tx,.74,-.54);
+    for(let i=0;i<3;i++){
+      const x=tx-.21+i*.21;
+      cyl(.049,.038,steel,x,.74,-.568,Math.PI/2);
+      cyl(.025,.08,dark,x,.74,-.61,Math.PI/2);
+      tube([[x,.74,-.65],[x,.49,-.70],[tx+.48,.30,-.66],[tx+half,.32,-.60]],.012,i===0?red:dark);
+    }
+    for(const x of[tx,tx+.43])box(.04,.055,.11,steel,x,.31,-.66);
+  }
   const tile = ({ sequence: 1, telemetry: 2, cables: 3, 'flight-plan': 13, 'crew-manifest': 5, weather: 6, beacons: 7, orientation: 12, survey: 8, records: 9, radio: 10, crew: 5, tracking: 11 })[kind];
   // Only the two paperwork offices need sun awnings. Instruments use open frames,
   // a lectern, a drafting table or a mobile cart rather than thirteen identical roofs.
@@ -258,6 +294,11 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       cyl(.17,.06,steel,x,2.11,-.02,Math.PI/2);cyl(.055,.075,dark,x,2.11,.022,Math.PI/2);
       for(let n=0;n<3;n++)put(new THREE.BoxGeometry(.025,.25,.014),dark,x,2.11,.025,0,0,n*Math.PI*2/3);
     }
+    // Tape deck transport: guides, capstan and the visible tape path between reels.
+    for(const x of[1.86,2.03,2.19])cyl(.026,.048,steel,x,1.88,.015,Math.PI/2);
+    tube([[1.85,1.96,.024],[1.86,1.88,.045],[2.03,1.85,.045],[2.19,1.88,.045],[2.18,1.96,.024]],.008,dark);
+    for(const x of[1.79,2.25])box(.09,.032,.027,amber,x,1.71,.012);
+    for(let i=0;i<8;i++)box(.018,.60,.015,dark,2.415,.90,-.52+i*.055);
     tube([[1.25,1.2,-.5],[1.55,.6,-.6],[1.75,.3,-.45],[2,.32,-.3]],.025,dark);
     clipboard(-.3,1.19,.24,2,.08);
   } else if(kind==='radio') {
@@ -310,6 +351,10 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     cyl(.11,.44,cream,.83,1.4,.05);cyl(.025,.52,steel,.83,1.44,.05);
     tube([[.82,1.18,.15],[.95,1.24,.4],[.55,1.22,.50],[.38,1.24,.24]],.018,red);
     cyl(.045, 3.9, steel, 2.35, 2.05, -.72); cyl(.16, .18, dark, 2.35, 3.8, -.72);
+    // Flanged base and mast clamps make the wind instrument physically anchored.
+    box(.42,.06,.42,steel,2.35,.10,-.72);
+    for(const dx of[-.14,.14])for(const dz of[-.14,.14])cyl(.024,.08,dark,2.35+dx,.17,-.72+dz);
+    for(const y of[.25,1.4,2.6])cyl(.065,.05,dark,2.35,y,-.72);
     if(animated){
       const rotor=new THREE.Group();rotor.name='weather-anemometer-rotor';rotor.position.set(2.35,3.86,-.72);root.add(rotor);
       for(let a=0;a<3;a++){
@@ -321,6 +366,11 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     }else for (let a = 0; a < 3; a++) { const angle = a * Math.PI * 2 / 3; const x = 2.35 + Math.cos(angle) * .65, z = -.72 + Math.sin(angle) * .65; tube([[2.35, 3.86, -.72], [x, 3.86, z]], .025, steel); put(new THREE.SphereGeometry(.14, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), cream, x, 3.86, z, Math.PI / 2, angle); }
     for(let i=0;i<5;i++)box(.59,.035,.52,cream,-2.35,1.25+i*.085,-.55);
     box(.7,.065,.63,cream,-2.35,1.67,-.55);box(.53,.36,.34,dark,-2.35,1.44,-.60);
+    // A framed louvred instrument shelter with a hinged access door.
+    for(const dx of[-.29,.29])box(.035,.45,.038,paint,-2.35+dx,1.43,-.27);
+    for(const dx of[-.21,.21])box(.06,.075,.022,steel,-2.35+dx,1.45,-.235);
+    cyl(.024,.09,dark,-2.16,1.43,-.21);
+    box(.61,.04,.55,paint,-2.35,1.18,-.55);
     for(const dx of[-.22,.22])for(const dz of[-.18,.18])box(.045,1.12,.045,steel,-2.35+dx,.66,-.55+dz);
   } else if (kind === 'beacons') {
     sheet(7,1.35,.93,-.15,1.185,.04,-Math.PI/2);cyl(.11,.18,dark,.72,1.28,.32,Math.PI/2);cyl(.11,.18,dark,.97,1.28,.32,Math.PI/2);
@@ -393,9 +443,14 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     cyl(.15,.25,dark,cx,lensY,-.60,Math.PI/2);cyl(.17,.035,steel,cx,lensY,-.74,Math.PI/2);cyl(.13,.035,dark,cx,lensY,-.77,Math.PI/2);
     cyl(.12,.08,steel,cx+.47,1.7,-.05,0,Math.PI/2);
     cyl(.06, .62, steel, cx, 1.25, -.05);
+    cyl(.17,.07,paint,cx,1.29,-.05);cyl(.12,.065,steel,cx,1.34,-.05);
+    for(const dx of[-.19,.19])cyl(.045,.1,dark,cx+dx,1.28,-.05,0,Math.PI/2);
     for(let i=0;i<3;i++){
       const a=i*Math.PI*2/3,fx=cx+Math.cos(a)*.6,fz=-.05+Math.sin(a)*.6;
-      tube([[cx,1.25,-.05],[fx,.2,fz]],.035,steel);box(.15,.04,.12,dark,fx,.18,fz,a);
+      tube([[cx,1.25,-.05],[fx,.2,fz]],.035,steel);box(.15,.13,.12,dark,fx,.135,fz,a);
+      // Telescoping lower legs and friction clamps visibly connect each foot.
+      tube([[(cx+fx)*.5,.725,(-.05+fz)*.5],[fx,.2,fz]],.045,paint);
+      cyl(.055,.065,dark,(cx+fx)*.5,.725,(-.05+fz)*.5);
       tube([[cx, .67,-.05],[(cx+fx)/2,.72,(fz-.05)/2]],.018,steel);
     }
     clipboard(.87, 1.18, .25, 8);
