@@ -69,3 +69,18 @@ test('map copy is registered in the shared catalog and translated in both langua
     assert.ok(APOLLO_TRANSLATIONS.has(source));assert.equal(apolloText(source,'en'),en);assert.equal(apolloText(source,'fr'),fr);
   }
 });
+
+test('physical signs, wind direction and remote distance use the selected language',()=>{
+  for(const[source,en,fr]of[
+    ['ORIENTACIÓN','ORIENTATION','ORIENTATION'],
+    ['RECONOCIMIENTO','COMPLEX SURVEY','RECONNAISSANCE'],
+    ['DOCUMENTACIÓN','DOCUMENTATION','DOCUMENTATION'],
+    ['COMUNICACIONES','COMMUNICATIONS','COMMUNICATIONS'],
+    ['OBSERVACIÓN','OBSERVATION','OBSERVATION'],
+    ['05 · RECREACIÓN HISTÓRICA','05 · HISTORICAL RECREATION','05 · RECONSTITUTION HISTORIQUE'],
+    ['225° / SO','225° / SW','225° / SO'],
+    ['5,6 km','5.6 km','5,6 km'],
+  ]){
+    assert.equal(apolloText(source,'es'),source);assert.equal(apolloText(source,'en'),en);assert.equal(apolloText(source,'fr'),fr);
+  }
+});

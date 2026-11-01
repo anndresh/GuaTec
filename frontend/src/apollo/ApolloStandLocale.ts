@@ -22,6 +22,7 @@ export const STAND_TRANSLATIONS: readonly (readonly [string,string,string])[] = 
   ['Registro de tripulación','Crew register','Registre de l’équipage'],
   ['Asocia cada credencial con su función en la misión.','Match each crew badge to its mission role.','Associez chaque badge à sa fonction dans la mission.'],
   ['Armstrong: comandante. Collins: módulo de mando. Aldrin: módulo lunar.','Armstrong: commander. Collins: command module. Aldrin: lunar module.','Armstrong : commandant. Collins : module de commande. Aldrin : module lunaire.'],
+  ['225° / SO','225° / SW','225° / SO'],
   ['Parte de observación','Observation report','Bulletin d’observation'],
   ['Alinea la veleta y ajusta la placa de nubosidad.','Align the wind vane and adjust the cloud-cover plate.','Alignez la girouette et réglez la plaque de nébulosité.'],
   ['Referencia del ejercicio: rumbo 225° y placa al 35 %. No son mediciones históricas.','Exercise reference: heading 225°, plate at 35%. These are not historical measurements.','Référence de l’exercice : cap 225°, plaque à 35 %. Ce ne sont pas des mesures historiques.'],

@@ -1,5 +1,6 @@
 /** Map labels describe the authored scene; station names remain in mission copy. */
 export const MAP_TRANSLATIONS: readonly (readonly [string,string,string])[] = [
+  ['5,6 km','5.6 km','5,6 km'],
   ['Plano del complejo','Complex plan','Plan du complexe'],
   ['Destino activo','Active destination','Destination active'],
   ['Completado','Completed','Terminé'],

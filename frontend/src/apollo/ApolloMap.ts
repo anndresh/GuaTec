@@ -82,7 +82,7 @@ export function drawApolloMap(canvas:HTMLCanvasElement,state:ApolloState,player:
       c.textAlign='left';c.fillStyle='#efd09a';c.font=`600 ${fonts.insetTitle}px sans-serif`;insetTextFits=c.measureText(apolloText('Observación remota · 5,6 km')).width<=w-108;c.fillText(apolloText('Observación remota · 5,6 km'),84,top+remoteInsetHeight*.4);
       c.fillStyle='#c5d2c1';c.font=`${fonts.insetDetail}px sans-serif`;insetTextFits=insetTextFits&&c.measureText(apolloText('Tu posición')+' · '+apolloText('Fuera del plano del complejo')).width<=w-108;c.fillText(apolloText('Tu posición')+' · '+apolloText('Fuera del plano del complejo'),84,top+remoteInsetHeight*.76);
     }
-  }else if(remote){c.fillStyle='#183b39f0';c.fillRect(0,h-30,w,30);arrow(14,h-15);c.textAlign='left';c.font='9px sans-serif';c.fillStyle='#f2d292';c.fillText('5,6 km · '+apolloText('Tu posición'),28,h-12);}
+  }else if(remote){c.fillStyle='#183b39f0';c.fillRect(0,h-30,w,30);arrow(14,h-15);c.textAlign='left';c.font='9px sans-serif';c.fillStyle='#f2d292';c.fillText(apolloText('5,6 km')+' · '+apolloText('Tu posición'),28,h-12);}
   c.restore();
   return{fontsCss:compact?null:annotations.fontsCss,cssWidth:canvas.clientWidth,insetTextFits,playerArea:remote?'remote':'complex',projectionScale:s};
 }

@@ -12,6 +12,7 @@ const browser=await chromium.launch({headless:true,...(process.env.CHROME_BIN?{e
 const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],checks=[];
 page.on('pageerror',e=>errors.push(e.message));
 let saved={state:{}};
+await page.route('https://sketchfab.com/models/**',route=>route.fulfill({contentType:'text/html',body:'<p>External viewer isolated for title verification.</p>'}));
 await page.route('**/api/progress/**',async route=>{
   if(route.request().method()==='PUT')saved=route.request().postDataJSON();
   await route.fulfill({json:saved});
@@ -23,6 +24,7 @@ await page.route('**/apollo-locale-acceptance',r=>r.fulfill({contentType:'text/h
  import {BONUS_CHECKPOINTS} from '/src/apollo/ApolloState.ts';
  import {setLanguage,getLanguage} from '/src/core/language.ts';
  window.setLocale=setLanguage;window.getLocale=getLanguage;window.mapCopy=[];
+ window.mountWeather=async()=>{const {mountBonusMission}=await import('/src/apollo/ApolloBonusMissions.ts');const host=document.createElement('div');host.id='weather-fixture';document.body.append(host);window.weather=mountBonusMission(host,BONUS_CHECKPOINTS.find(b=>b.kind==='weather'),{onComplete(){},onCancel(){}});};
  const fillText=CanvasRenderingContext2D.prototype.fillText;
  CanvasRenderingContext2D.prototype.fillText=function(text,...args){window.mapCopy.push(text);return fillText.call(this,text,...args)};
  const getContext=HTMLCanvasElement.prototype.getContext;let fail=false;
@@ -41,7 +43,11 @@ try{
  await page.evaluate(()=>window.setLocale('en'));await page.waitForTimeout(80);
  const after=await page.locator('.ap-cinema-caption').innerText();assert.notEqual(after,before);assert.match(after,/FLORIDA|JULY/i);
  checks.push('Language changes during loading and the introduction update the live scene without errors.');
- await page.getByRole('button',{name:'Skip introduction'}).click();await page.evaluate(()=>{window.setLocale('es');window.nearPower()});
+ await page.getByRole('button',{name:'Skip introduction'}).click();
+ const english=await page.evaluate(()=>({deck:[...document.querySelectorAll('.ap-deck-label')].map(n=>n.textContent),objective:document.querySelector('.ap-objective').getAttribute('aria-label'),mobile:[...document.querySelectorAll('[data-mobile-copy]')].map(n=>n.textContent),map:document.querySelector('.ap-minimap span').textContent}));
+ assert.deepEqual(english.deck,['Map · M','Radio · R','Pause']);assert.equal(english.objective,'Current objective');assert.deepEqual(english.mobile,['Jump','Run']);assert.equal(english.map,'LC-39A · MAP / M');assert.ok(await page.evaluate(()=>window.mapCopy.includes('ORIENTATION')&&window.mapCopy.includes('OBSERVATION')&&window.mapCopy.includes('05 · HISTORICAL RECREATION')));checks.push({introLanguageRestored:english});
+ await page.evaluate(()=>window.setLocale('fr'));assert.equal(await page.locator('.ap-objective').getAttribute('aria-label'),'Objectif actuel');
+ await page.evaluate(()=>{window.setLocale('es');window.nearPower()});
  await page.getByRole('button',{name:'E · Banco de alimentación',exact:true}).click();
  await page.locator('[data-item="1"]').click();await page.locator('[data-slot="0"]').click();
  for(const [language,title]of[['en','Power distribution bench'],['fr','Banc d’alimentation'],['es','Banco de alimentación']]){
@@ -60,6 +66,14 @@ try{
  await page.screenshot({path:resolve(out,'pause-fr.png')});checks.push('French pause copy, canvas map and Escape focus restoration are localized.');
  await page.keyboard.press('Escape');await page.getByRole('button',{name:'E · Banc d’alimentation',exact:true}).click();
  assert.equal(await page.locator('[data-filled="true"]').count(),1);checks.push('Closing and reopening in another language retains the partial operation.');
+ await page.keyboard.press('Escape');
+ await page.evaluate(()=>{window.setLocale('en');mission.openSketchfab()});assert.equal(await page.locator('.ap-sketchfab').getAttribute('title'),'Official Sketchfab viewer of HUuser2024’s Saturn V');
+ await page.evaluate(()=>window.setLocale('fr'));assert.equal(await page.locator('.ap-sketchfab').getAttribute('title'),'Visionneuse Sketchfab officielle du Saturn V de HUuser2024');await page.keyboard.press('Escape');checks.push('The external viewer has a translated accessible title.');
+ for(const[language,bearing,distance]of[['es','225° / SO','5,6 km'],['en','225° / SW','5.6 km'],['fr','225° / SO','5,6 km']]){
+  await page.evaluate(async language=>{window.setLocale(language);await window.mountWeather();mission.world.player.set(0,0,5600);window.mapCopy=[];mission.drawMap(mission.map)},language);
+  assert.equal(await page.locator('.ap-wind-reference').innerText(),bearing);assert.ok(await page.evaluate(distance=>window.mapCopy.some(copy=>copy.startsWith(distance+' · ')),distance));
+  await page.evaluate(()=>{weather.dispose();document.querySelector('#weather-fixture').remove()});
+ }checks.push('Weather bearings and remote minimap distance use ES/EN/FR notation.');
  await page.evaluate(()=>window.start(true));await page.getByRole('heading',{name:'Le mode 3D n’a pas pu démarrer',exact:true}).waitFor();
  await page.evaluate(()=>window.setLocale('en'));await page.getByRole('heading',{name:'3D mode could not start',exact:true}).waitFor();
  await page.getByRole('button',{name:'Retry mission',exact:true}).click();assert.equal(await page.evaluate(()=>window.retried),true);

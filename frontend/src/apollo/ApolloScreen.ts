@@ -321,7 +321,7 @@ export class ApolloScreen implements Screen {
   }
   private renderObjective() {
     if(!this.hud) return;
-    const cp=this.state.current; this.hud.replaceChildren();
+    const cp=this.state.current; this.hud.replaceChildren(); this.hud.setAttribute('aria-label',apolloText('Objetivo actual'));
     this.hud.append(el('small','','MISIÓN 01 — APOLLO 11'),el('span','ap-progress',`${String(this.state.completed.length + this.state.bonusCompleted.length).padStart(2,'0')} / 15`));
     const completed=this.state.completed.length + this.state.bonusCompleted.length;
     const meter=el('div','ap-operation-meter');
@@ -650,7 +650,7 @@ export class ApolloScreen implements Screen {
     this.modalKind='sketchfab';
     const box=this.openModal('VISOR OFICIAL EXTERNO · NO INTEGRADO EN EL ESCENARIO','Saturn V de HUuser2024');
     box.append(el('p','','LEGO Animated Saturn V Apollo 11 Rocket launch · 1 animación · 10.291.703 caras. Licencia Standard, sin descarga autorizada disponible. El lanzamiento del escenario utiliza una recreación original independiente.'));
-    const frame=el('iframe','ap-sketchfab');frame.title='Visor oficial Sketchfab del Saturn V de HUuser2024';
+    const frame=el('iframe','ap-sketchfab');frame.title=apolloText('Visor oficial Sketchfab del Saturn V de HUuser2024');
     frame.src='https://sketchfab.com/models/6d25ada102844d81b0b9b4149f720531/embed?autostart=1&preload=1&ui_infos=1&api_version=1&api_id=apollo11';
     frame.allow='autoplay; fullscreen; xr-spatial-tracking';frame.allowFullscreen=true;box.append(frame);
     // Official Viewer API is deliberately confined to the embedded educational viewer.
@@ -681,11 +681,6 @@ export class ApolloScreen implements Screen {
     if(!this.root.classList.contains('ap-ready')){const loading=this.root.querySelector('.ap-loading');if(loading)loading.textContent=apolloText('PREPARANDO OPERACIONES · APOLLO 11');return;}
     this.world.refreshLanguage();
     this.dialogue?.refreshLanguage();
-    if (this.movie) {
-      const caption=this.movieOverlay?.querySelector<HTMLElement>('.ap-cinema-caption');if(caption)caption.dataset.signature='';
-      const skip=this.movieOverlay?.querySelector<HTMLElement>('.ap-skip');if(skip)skip.textContent=apolloText('Omitir introducción');
-      this.movieVoiceKey='';this.renderMovie();return;
-    }
     this.root.querySelectorAll<HTMLButtonElement>('.ap-deck-control').forEach(button=>{
       const label=button.querySelector('.ap-deck-label');if(label)label.textContent=apolloText(button.dataset.copy ?? '');
     });
@@ -693,6 +688,11 @@ export class ApolloScreen implements Screen {
     this.mobileControls?.querySelector('.ap-mobile-action--pause')?.setAttribute('aria-label',apolloText('Pausa'));
     this.mobileControls?.querySelectorAll<HTMLButtonElement>('[data-mobile-copy]').forEach(button=>{button.textContent=t(button.dataset.mobileCopy ?? '');});
     this.renderObjective(); this.updateNavigation();
+    if (this.movie) {
+      const caption=this.movieOverlay?.querySelector<HTMLElement>('.ap-cinema-caption');if(caption)caption.dataset.signature='';
+      const skip=this.movieOverlay?.querySelector<HTMLElement>('.ap-skip');if(skip)skip.textContent=apolloText('Omitir introducción');
+      this.movieVoiceKey='';this.renderMovie();return;
+    }
     const kind=this.modalKind;
     const bonusId=this.bonusKey;
     if (!kind) return;
