@@ -9,10 +9,11 @@ import { ApolloAudio } from './ApolloAudio';
 import { ApolloDialogue } from './ApolloDialogue';
 import './apollo.css';
 import './ApolloPause.css';
+import './ApolloHud.css';
 import './apollo-start-error.css';
 import { apolloText, apolloLanguage } from './ApolloLocale';
 import { ApolloVoice } from './ApolloVoice';
-import { setLanguage } from '@/core/i18n';
+import { setLanguage, t } from '@/core/i18n';
 import { mountInstrument, type InstrumentHandle, type InstrumentKind } from './ApolloInstruments';
 import { FIELD_INSTRUMENTS, fieldDraftKey, restoreFieldDrafts, type FieldDrafts } from './ApolloFieldProgress';
 import { mountBonusMission, type BonusMissionHandle } from './ApolloBonusMissions';
@@ -223,17 +224,17 @@ export class ApolloScreen implements Screen {
     const b=el('button',cls,text); b.type='button'; b.addEventListener('click',callback); return b;
   }
   private buildMobileControls() {
-    const controls=el('div','ap-mobile-controls');
+    const controls=el('div','ap-mobile-controls');controls.setAttribute('role','group');controls.setAttribute('aria-label',t('Controles táctiles'));
     const stick=el('div','ap-mobile-stick');
     const knob=el('span','ap-mobile-stick-knob');
     stick.append(el('span','ap-mobile-stick-hint','▲'),knob);
     const actions=el('div','ap-mobile-actions');
     const pause=this.button('Ⅱ',()=>this.openPause(),'ap-mobile-action ap-mobile-action--pause');
-    pause.setAttribute('aria-label',apolloText('Pausar misión'));
-    const interact=this.button('Examinar',()=>this.interact(),'ap-mobile-action ap-mobile-action--interact');
+    pause.setAttribute('aria-label',apolloText('Pausa'));
+    const interact=this.button(t('Examinar'),()=>this.interact(),'ap-mobile-action ap-mobile-action--interact');
     this.mobileInteract=interact; interact.hidden=true;
-    const jump=this.button('Saltar',()=>this.world.jump(),'ap-mobile-action');
-    const sprint=this.button('Correr',()=>undefined,'ap-mobile-action');
+    const jump=this.button(t('Saltar'),()=>this.world.jump(),'ap-mobile-action');jump.dataset.mobileCopy='Saltar';
+    const sprint=this.button(t('Correr'),()=>undefined,'ap-mobile-action');sprint.dataset.mobileCopy='Correr';
     sprint.setAttribute('aria-pressed','false');
     const releaseSprint=()=>{this.world.setTouchSprint(false);sprint.classList.remove('is-active');sprint.setAttribute('aria-pressed','false');};
     sprint.addEventListener('pointerdown',event=>{event.preventDefault();sprint.setPointerCapture(event.pointerId);this.world.setTouchSprint(true);sprint.classList.add('is-active');sprint.setAttribute('aria-pressed','true');});
@@ -282,7 +283,17 @@ export class ApolloScreen implements Screen {
   private buildHud() {
     const top=el('div','ap-topbar');
     const mark=el('div','ap-mark'); mark.innerHTML='<b>APOLLO <span>11</span></b><small>KENNEDY SPACE CENTER · 16 JUL 1969</small>';
-    top.append(mark); this.root.append(top);
+    const deck=el('nav','ap-hud-deck');
+    for(const [icon,label,action] of [
+      ['⌖','Mapa · M',()=>this.openMap()],
+      ['◖','Radio · R',()=>this.dialogue.repeat()],
+      ['Ⅱ','Pausa',()=>this.openPause()],
+    ] as const) {
+      const button=this.button('',action,'ap-deck-control');button.dataset.copy=label;
+      const symbol=el('span','ap-deck-icon',icon);symbol.setAttribute('aria-hidden','true');
+      button.append(symbol,el('span','ap-deck-label',label));deck.append(button);
+    }
+    top.append(mark,deck); this.root.append(top);
     this.hud=el('section','ap-objective'); this.hud.setAttribute('aria-label',apolloText('Objetivo actual')); this.root.append(this.hud);
     this.subtitle=el('div','ap-radio'); this.subtitle.setAttribute('aria-live','polite'); this.root.append(this.subtitle);
     this.prompt=this.button('',()=>this.interact(),'ap-interact'); this.root.append(this.prompt);
@@ -311,11 +322,21 @@ export class ApolloScreen implements Screen {
     if(!this.hud) return;
     const cp=this.state.current; this.hud.replaceChildren();
     this.hud.append(el('small','','MISIÓN 01 — APOLLO 11'),el('span','ap-progress',`${String(this.state.completed.length + this.state.bonusCompleted.length).padStart(2,'0')} / 15`));
+    const completed=this.state.completed.length + this.state.bonusCompleted.length;
+    const meter=el('div','ap-operation-meter');
+    meter.setAttribute('role','progressbar');meter.setAttribute('aria-label',apolloText('Objetivo actual'));
+    meter.setAttribute('aria-valuemin','0');meter.setAttribute('aria-valuemax','15');meter.setAttribute('aria-valuenow',String(completed));
+    for(let i=0;i<15;i++){const segment=el('i',i<completed?'is-complete':'');segment.setAttribute('aria-hidden','true');meter.append(segment);}
+    this.hud.append(meter);
     const details=el('details','ap-objective-details');details.open=this.objectivesExpanded;
     const summary=el('summary');summary.append(el('h2','',cp.title));details.append(summary,el('p','',cp.objective));
     details.addEventListener('toggle',()=>{this.objectivesExpanded=details.open;});
     const checklist=el('div','ap-checklist');
-    for(const action of cp.actions) checklist.append(el('span',this.state.checks.includes(action.id)?'ap-checked':'',`${this.state.checks.includes(action.id)?'✓':'·'} ${action.label}`));
+    for(const action of cp.actions) {
+      const checked=this.state.checks.includes(action.id);
+      const item=el('span',checked?'ap-checked':'',`${checked?'✓':'·'} ${action.label}`);
+      item.dataset.complete=String(checked);checklist.append(item);
+    }
     const blocked=cp.actions.find(action=>!this.state.checks.includes(action.id)&&action.requiresBonus?.some(id=>!this.state.bonusCompleted.includes(id)));
     const missing=BONUS_CHECKPOINTS.filter(bonus=>blocked?.requiresBonus?.includes(bonus.id)&&!this.state.bonusCompleted.includes(bonus.id));
     if(missing?.length) details.append(el('small','ap-bonus-gate',`REQUERIDO PARA AVANZAR · ${(this.state.requiredStand ?? missing[0]).title}`));
@@ -661,6 +682,12 @@ export class ApolloScreen implements Screen {
       const skip=this.movieOverlay?.querySelector<HTMLElement>('.ap-skip');if(skip)skip.textContent=apolloText('Omitir introducción');
       this.movieVoiceKey='';this.renderMovie();return;
     }
+    this.root.querySelectorAll<HTMLButtonElement>('.ap-deck-control').forEach(button=>{
+      const label=button.querySelector('.ap-deck-label');if(label)label.textContent=apolloText(button.dataset.copy ?? '');
+    });
+    this.mobileControls?.setAttribute('aria-label',t('Controles táctiles'));
+    this.mobileControls?.querySelector('.ap-mobile-action--pause')?.setAttribute('aria-label',apolloText('Pausa'));
+    this.mobileControls?.querySelectorAll<HTMLButtonElement>('[data-mobile-copy]').forEach(button=>{button.textContent=t(button.dataset.mobileCopy ?? '');});
     this.renderObjective(); this.updateNavigation();
     const kind=this.modalKind;
     const bonusId=this.bonusKey;
@@ -736,7 +763,8 @@ export class ApolloScreen implements Screen {
     this.prompt.textContent=bonusNear?'E · '+(this.state.canStartBonus(bonus!.id)?bonus!.title:'Stand pendiente de autorización'):near?'E · '+(this.state.checkpoint===4?'Observar a la tripulación':this.state.checkpoint===6?'Presenciar el lanzamiento':'Examinar estación'):`${Math.round(remaining)} m · ${destination.title}`;
     this.prompt.textContent=apolloText(this.prompt.textContent);
     this.prompt.disabled=!(near || bonusNear);
-    if(this.mobileInteract){this.mobileInteract.hidden=!(this.started && !this.paused && !this.movie && (near || bonusNear));this.mobileInteract.textContent=apolloText(bonusNear?'Abrir stand':'Examinar');}
+    this.prompt.dataset.mode=this.prompt.disabled?'route':'interact';
+    if(this.mobileInteract){this.mobileInteract.hidden=!(this.started && !this.paused && !this.movie && (near || bonusNear));this.mobileInteract.textContent=t('Examinar');}
     if(this.uiTarget) {
       this.uiTarget.hidden=!!this.movie || this.paused;
       const projected=this.world.projectDestination(destination.target),width=this.root.clientWidth,height=this.root.clientHeight;
