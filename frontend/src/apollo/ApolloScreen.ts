@@ -5,6 +5,8 @@ import { progressApi } from '@/api/progressApi';
 import { MISSION_SLUGS } from '@/config/gameConfig';
 import { ApolloState, BONUS_CHECKPOINTS, CHECKPOINTS } from './ApolloState';
 import { ApolloWorld } from './ApolloWorld';
+import {cinematicCurtain,sceneRevealOpacity} from './ApolloCinematicMotion';
+import './ApolloCinematicTransitions.css';
 import { ApolloAudio } from './ApolloAudio';
 import { ApolloDialogue } from './ApolloDialogue';
 import './apollo.css';
@@ -92,6 +94,9 @@ export class ApolloScreen implements Screen {
   private movie: 'intro'|'crew'|'launch'|null = null;
   private movieTime=0;
   private movieOverlay: HTMLElement | null=null;
+  private sceneTransition: HTMLElement | null=null;
+  private sceneTransitionTime=0;
+  private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private paused=false;
   private started=false;
   private disposed=false;
@@ -370,6 +375,7 @@ export class ApolloScreen implements Screen {
     void this.save(); this.renderObjective();
     if(before===5 && this.state.checkpoint===6) {
       this.world.player.set(0,0,5600);
+      this.startSceneReveal();
       this.notify('Traslado completado · área de observación a 5,6 km de LC-39A');
     }
     if(before!==this.state.checkpoint) {
@@ -468,8 +474,10 @@ export class ApolloScreen implements Screen {
   private beginMovie(mode:'intro'|'crew'|'launch') {
     if(mode==='crew' && (this.state.checkpoint!==4 || this.distance()>15)) return;
     if(mode==='launch' && (this.state.checkpoint!==6 || this.distance()>15)) return;
+    this.sceneTransition?.remove();this.sceneTransition=null;
     this.closeModal(); this.dialogue.clear();this.voice.stop();this.movieVoiceKey=''; this.movie=mode; this.movieTime=0; this.world.setSuspended(true);
     this.movieOverlay=el('div','ap-cinema'); this.root.append(this.movieOverlay); this.root.classList.add('ap-in-cinema'); document.body.classList.add('apollo-cinematic');
+    const shutter=el('div','ap-cinema-shutter');shutter.setAttribute('aria-hidden','true');this.movieOverlay.append(shutter);
     if(mode==='intro') this.movieOverlay.append(this.button('Omitir introducción',()=>this.finishMovie(),'ap-skip'));
     this.renderMovie();
   }
@@ -478,6 +486,8 @@ export class ApolloScreen implements Screen {
     const time=this.movieTime, mode=this.movie;
     this.world.setCinematic(mode,time);
     this.movieOverlay.classList.toggle('ap-black',mode==='intro' && time<4 || mode==='crew' && time>=24);
+    const shutter=this.movieOverlay.querySelector<HTMLElement>('.ap-cinema-shutter');
+    if(shutter)shutter.style.opacity=String(cinematicCurtain(mode,time,this.reducedMotion));
     let title='',label='',text='';
     if(mode==='intro') {
       if(time<4) {label='FLORIDA, ESTADOS UNIDOS';title='16 DE JULIO DE 1969';text='CENTRO ESPACIAL KENNEDY';}
@@ -506,6 +516,7 @@ export class ApolloScreen implements Screen {
   private finishMovie() {
     const mode=this.movie; if(!mode)return;
     this.voice.stop();
+    this.startSceneReveal();
     this.movie=null; this.movieOverlay?.remove(); this.movieOverlay=null;
     this.root.classList.remove('ap-in-cinema'); document.body.classList.remove('apollo-cinematic'); this.world.setCinematic(null,0); this.world.setSuspended(this.paused);
     if(mode==='launch') this.audio.stopLaunch();
@@ -513,6 +524,11 @@ export class ApolloScreen implements Screen {
     if(mode==='crew') this.act('crew-film');
     else if(mode==='launch') this.act('launch-film');
     else this.enterCheckpoint();
+  }
+  private startSceneReveal() {
+    this.sceneTransition?.remove();this.sceneTransitionTime=0;
+    this.sceneTransition=el('div','ap-scene-transition');this.sceneTransition.setAttribute('aria-hidden','true');
+    this.sceneTransition.style.opacity='1';this.root.append(this.sceneTransition);
   }
   private showEnd() {
     this.modalKind='end';
@@ -728,8 +744,27 @@ export class ApolloScreen implements Screen {
   private readonly frame=(now:number) => {
     if(this.disposed)return;
     const raw=Math.max(0,(now-this.lastTime)/1000),dt=Math.min(.1,raw);this.lastTime=now;
+    if(this.sceneTransition){
+      this.sceneTransitionTime+=dt;
+      const opacity=sceneRevealOpacity(this.sceneTransitionTime,this.reducedMotion);
+      this.sceneTransition.style.opacity=String(opacity);
+      if(opacity===0){this.sceneTransition.remove();this.sceneTransition=null;}
+    }
     const beforeX=this.world.player.x,beforeZ=this.world.player.z;
     this.pollUiGamepad(now);
+    // The curtain and the camera must render the same timeline sample, even
+    // after a slow frame. Advance the movie before the world consumes its pose.
+    if(this.started&&!this.paused){
+      this.state.elapsed+=dt;
+      if(this.movie){
+        let next=this.movieTime+dt;
+        if(this.movie==='intro'&&this.voice.isSpeaking){
+          const boundary=[4,12.7,21.4,30,36].find(t=>t>this.movieTime);
+          if(boundary&&next>=boundary)next=boundary-.01;
+        }
+        this.movieTime=next;this.renderMovie();
+      }
+    }
     this.world.update(this.paused ? 0 : dt);
     if(this.started && !this.paused && !this.movie) {
       this.stepDistance+=Math.hypot(this.world.player.x-beforeX,this.world.player.z-beforeZ);
@@ -737,16 +772,7 @@ export class ApolloScreen implements Screen {
     }
     if(!this.paused) {
       if(this.started) {
-        this.state.elapsed+=dt;
-        if(this.movie){
-          let next=this.movieTime+dt;
-          if(this.movie==='intro' && this.voice.isSpeaking){
-            const boundary=[4,12.7,21.4,30,36].find(t=>t>this.movieTime);
-            if(boundary && next>=boundary)next=boundary-.01;
-          }
-          this.movieTime=next;this.renderMovie();
-        }
-        else {if(this.activeIndex!==this.state.checkpoint)this.enterCheckpoint();this.dialogue.update(dt);}
+        if(!this.movie){if(this.activeIndex!==this.state.checkpoint)this.enterCheckpoint();this.dialogue.update(dt);}
       }
       if(raw>0 && this.started){this.frameTimes.push(raw*1000);if(this.frameTimes.length>300)this.frameTimes.shift();}
     }
@@ -783,6 +809,7 @@ export class ApolloScreen implements Screen {
     return {...this.world.diagnostics(),checkpoint:this.state.checkpoint,checks:this.state.checks,completed:this.state.completed,movie:this.movie,movieTime:this.movieTime,quality:this.quality,frameMs:average,fps:average?1000/average:0,samples:times.length};
   }
   unmount() {
+    this.sceneTransition?.remove();this.sceneTransition=null;
     document.body.classList.remove('apollo-active');
     document.body.classList.remove('apollo-cinematic');
     this.disposeInstrument();this.bonusMission?.dispose();this.bonusMission=null;this.voice.dispose();clearTimeout(this.draftTimer);

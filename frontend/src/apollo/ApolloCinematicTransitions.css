@@ -1,0 +1,6 @@
+.apollo-screen .ap-cinema{transition:none}
+.ap-cinema-shutter{position:absolute;inset:0;z-index:0;background:#000;opacity:0;pointer-events:none}
+.ap-cinema-caption{z-index:1}
+.ap-skip{z-index:2}
+.ap-in-cinema .ap-toast{visibility:hidden}
+.ap-scene-transition{position:absolute;inset:0;z-index:8;background:#000;pointer-events:none}

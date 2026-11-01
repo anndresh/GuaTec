@@ -940,6 +940,8 @@ export class ApolloWorld {
       this.crewRoot.visible = mode === 'crew'; this.van.visible = mode === 'crew';
       this.playerRoot.visible = mode === null;
       this.target.visible = !mode && !!this.targetPoint;
+      this.renderer.shadowMap.needsUpdate=true;
+      if(mode===null)this.restoreGameplayCamera();
     }
     this.cinematicElapsed = Math.max(0, elapsedSeconds);
     this.arms.forEach((arm, i) => {
@@ -947,6 +949,20 @@ export class ApolloWorld {
       if(mode==='crew'||mode==='intro')arm.rotation.y=restYaw;
       if(i===this.arms.length-1)arm.rotation.y=restYaw+(mode==='crew'?0:-Math.PI*.68);
     });
+  }
+  /** Cinematic and follow cameras hand off on a covered frame, so smoothing
+   * never drags the viewpoint back from the tower or the distant launch lens. */
+  private restoreGameplayCamera():void {
+    if(this.player.z>5000){
+      this.camera.position.set(this.player.x,5,this.player.z);this.cameraLook.set(0,64,0);this.camera.fov=3.4;
+    }else{
+      const distance=5.8,viewAngle=clamp(this.pitch-.34,-1.05,1.15);
+      this.camera.position.set(this.player.x+Math.sin(this.yaw)*distance,this.player.y+3.35+this.pitch*.9,this.player.z+Math.cos(this.yaw)*distance);
+      this.cameraLook.set(this.player.x-Math.sin(this.yaw)*6.3,this.camera.position.y+Math.tan(viewAngle)*(distance+6.3),this.player.z-Math.cos(this.yaw)*6.3);
+      this.camera.fov=this.zoomed?22:62;
+    }
+    this.cameraGoal.copy(this.camera.position);this.lookGoal.copy(this.cameraLook);
+    this.camera.lookAt(this.cameraLook);this.camera.updateProjectionMatrix();this.lastCameraUpdate=performance.now();
   }
   /** Diagonal movement is normalized; axis-separated capsule/AABB sweep prevents
    * moving through closed buildings, props or the fenced 39A exclusion circle. */

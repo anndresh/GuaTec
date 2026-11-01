@@ -22,7 +22,9 @@
     "qa:apollo-camera": "node scripts/qa-apollo-camera.mjs",
     "qa:apollo-movement": "node scripts/qa-apollo-movement.mjs",
     "qa:apollo-cinematic-motion": "node scripts/qa-apollo-cinematic-motion.mjs",
-    "qa:apollo-motion-release": "node scripts/qa-apollo-motion-release.mjs"
+    "qa:apollo-motion-release": "node scripts/qa-apollo-motion-release.mjs",
+    "qa:apollo-service-arms": "node scripts/qa-apollo-service-arms.mjs",
+    "qa:apollo-transitions": "node scripts/qa-apollo-transitions.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "^7.35.1",

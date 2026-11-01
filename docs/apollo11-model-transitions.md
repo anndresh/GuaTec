@@ -31,3 +31,32 @@ exploración: 91→91 llamadas y 229812→229896 triángulos. Es una comparació
 capturas, no FPS. La vista estrecha con tripulación mantiene el coste alto de
 los clones y sombras existentes. No se añadieron texturas, postprocesado,
 dependencias ni activos externos; no se afirma calidad premium global.
+
+## Transiciones y entrega de cámara
+
+Una cortina calculada desde el tiempo de la secuencia cubre los dos cortes de
+tripulación y los cuatro de lanzamiento. Mantiene los subtítulos por encima,
+conserva las tarjetas narrativas negras y elimina la transición CSS de fondo
+que competía con esa cronología. Los avisos de checkpoint se ocultan durante
+la película. El modo de movimiento reducido elimina los fundidos decorativos.
+
+Al terminar u omitir una película, la cámara recupera directamente la posición
+y el campo de visión de juego sobre un fotograma cubierto, seguido de una
+revelación breve. Se evita el barrido desde la torre o desde el teleobjetivo.
+El traslado a observación usa esa misma revelación. La capa se elimina aunque
+el epílogo esté pausado y se reemplaza en interrupciones rápidas.
+
+El tiempo de película se actualiza antes de renderizar el mundo: cámara y
+cortina consumen la misma muestra, también en una actualización de 100 ms.
+La revisión independiente detectó y permitió corregir el desfase de un
+fotograma y la competencia CSS. No se añadieron temporizadores de transición,
+texturas ni pases de render.
+
+Pasan 110 pruebas, typecheck, build aislado, vídeo local de cortes y retornos,
+reproducción por tiempo, subtítulos en 390×844, interrupciones, transferencia
+remota, epílogo pausado y movimiento reducido. El compilado también pasa como
+Invitado: apertura real de introducción, omisión, posición/FOV de juego,
+movimiento, salto, pausa y mapa. Los fixtures locales de cinemática usan estado
+en memoria y API interceptada; no constituyen un recorrido completo de misión.
+El arnés permite WebSocket local en su perfil Chrome aislado para evitar que
+la política de red del navegador bloquee el cliente de desarrollo Vite.

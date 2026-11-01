@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {cinematicTravel} from '../src/apollo/ApolloCinematicMotion';
+import {cinematicTravel,cinematicCurtain,sceneRevealOpacity} from '../src/apollo/ApolloCinematicMotion';
 import {ApolloExhaust} from '../src/apollo/ApolloExhaust';
 import {buildCar,CAR_SPECS,poseVehicle,type VehicleRig} from '../src/apollo/ApolloVehicles';
 
@@ -14,6 +14,22 @@ test('crew paths reach their mark with continuous speed and acceleration at join
     for(const t of[2.5,21.5]){const left=cinematicTravel(t-1e-6,distance),right=cinematicTravel(t+1e-6,distance);assert.ok(Math.abs(left.speed-right.speed)<1e-5);assert.ok(Math.abs(left.acceleration-right.acceleration)<1e-5);}
     for(const t of[.7,5,22.3]){const h=1e-5,a=cinematicTravel(t-h,distance),b=cinematicTravel(t+h,distance),s=cinematicTravel(t,distance);assert.ok(Math.abs((b.distance-a.distance)/(2*h)-s.speed)<1e-6);assert.ok(Math.abs((b.speed-a.speed)/(2*h)-s.acceleration)<1e-6);}
   }
+});
+
+test('cinematic curtains cover lens cuts and preserve narrative cards when seeking',()=>{
+  assert.equal(cinematicCurtain('intro',0),1);assert.equal(cinematicCurtain('intro',4),1);
+  assert.ok(Math.abs(cinematicCurtain('intro',4.6)-.5)<1e-10);assert.equal(cinematicCurtain('intro',5.2),0);assert.equal(cinematicCurtain('intro',36),1);
+  for(const[mode,times]of[['crew',[7,17]],['launch',[3,6.5,9,18]]] as const){
+    for(const time of times){assert.equal(cinematicCurtain(mode,time),1);assert.equal(cinematicCurtain(mode,time-.3),0);assert.equal(cinematicCurtain(mode,time+.3),0);assert.equal(cinematicCurtain(mode,time,true),0);}
+  }
+  assert.equal(cinematicCurtain('crew',24,true),1);assert.equal(cinematicCurtain('launch',60),1);
+  for(const mode of['intro','crew','launch'] as const)for(let time=0;time<60;time+=.037){const opacity=cinematicCurtain(mode,time);assert.ok(opacity>=0&&opacity<=1);}
+});
+
+test('return curtain settles without a timer and reduced motion shortens its reveal',()=>{
+  assert.equal(sceneRevealOpacity(0),1);assert.equal(sceneRevealOpacity(.55),0);assert.equal(sceneRevealOpacity(10),0);
+  assert.ok(Math.abs(sceneRevealOpacity(.275)-.5)<1e-10);assert.equal(sceneRevealOpacity(.15,true),0);
+  let previous=1;for(let time=0;time<=.6;time+=.01){const opacity=sceneRevealOpacity(time);assert.ok(opacity<=previous);previous=opacity;}
 });
 
 test('five exhausts share two bounded batches anchored at the nozzle mouths',()=>{
