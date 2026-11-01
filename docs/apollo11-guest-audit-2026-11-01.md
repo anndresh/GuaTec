@@ -62,3 +62,18 @@ se amplía con recuperación tras exposición óptica incorrecta, cambio real de
 idioma, compás ES/EN/FR, informes en los tres idiomas, vídeo y captura de errores
 de consola/red. Admite localhost o el dominio público conocido; no permite
 hosts arbitrarios ni inyecta progreso.
+
+## Aceptación final
+
+La repetición pública de `86da023` completó las quince operaciones, cambios de
+idioma mediante controles reales, compás ES/EN/FR, lanzamiento, apertura del
+informe guardado en ES/EN/FR, reentrada y reinicio. Recuperó ocho hitos y siete
+apoyos; cero errores de página, consola o red. Vídeo, tres informes capturados
+y JSON: `frontend/artifacts/mission-audit-2026-11-01/public-story-verified`.
+
+Se corrigió además una comprobación del arnés: intentaba pulsar el obturador
+mientras estaba deshabilitado y luego consultaba su estado antes de su primer
+fotograma. La prueba espera ahora ese estado y utiliza el atajo de teclado
+para confirmar que una exposición no estabilizada no avanza la misión. La
+captura válida posterior y todo el recorrido pasan. No requirió cambiar la
+regla del instrumento.

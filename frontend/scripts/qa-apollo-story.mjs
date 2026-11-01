@@ -91,7 +91,7 @@ try{
  await page.getByText('Misión 01: Apollo 11',{exact:true}).click();await page.getByRole('button',{name:'Comenzar operaciones',exact:true}).click();await page.getByRole('button',{name:'Omitir introducción'}).click();await capture('arrival');
  for(const language of['en','fr','es'])await changeMissionLanguage(language);
  await stand('sequence');await page.keyboard.press('m');await page.getByRole('button',{name:'Volver a operaciones',exact:true}).click();
- await openCurrent();await page.locator('.ap-inst-action').click();assert.equal((await snapshot()).checkpoint,0,'An unstable exposure cannot advance the mission.');await optics([[52,72,79]]);await checkpoint(1);await capture('orientation');
+ await openCurrent();await page.waitForFunction(()=>document.querySelector('.ap-inst-action')?.disabled===true);assert.equal(await page.locator('.ap-inst-action').isDisabled(),true);await page.locator('.ap-instrument').focus();await page.keyboard.press('Space');assert.equal((await snapshot()).checkpoint,0,'An unstable exposure cannot advance the mission.');await optics([[52,72,79]]);await checkpoint(1);await capture('orientation');
  await stand('flight-plan');await openCurrent();await optics([[26,62,83],[52,72,79],[82,48,86]]);await checkpoint(2);await capture('complex');
  await stand('telemetry');await stand('cables');await openCurrent();
  for(const[i,id]of['AS-506','LC-39A','09:32 EDT'].entries()){await page.locator('[data-card="'+id+'"]').click();await page.locator('.ap-inst-record-slot[data-slot="'+i+'"]').click();}
