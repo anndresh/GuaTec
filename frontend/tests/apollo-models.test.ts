@@ -160,3 +160,16 @@ test('period support vehicles retain their wheelbase and fit their collision dim
     car.traverse(node=>{if(node instanceof THREE.Mesh)node.geometry.dispose();});
   }materials.forEach(material=>material.dispose());
 });
+
+test('service arms keep connected metre-scale decks, covered passage and bounded shared batches',async()=>{
+  const{buildServiceArm}=await import('../src/apollo/ApolloServiceArm');
+  const materials=new Map<string,THREE.MeshStandardMaterial>();
+  const factory=(name:string,color:number,roughness=.8,metalness=0)=>{if(!materials.has(name))materials.set(name,new THREE.MeshStandardMaterial({name,color,roughness,metalness}));return materials.get(name)!};
+  for(const[index,radius]of[5.05,5.05,5.05,5.05,3.3,3.18,2].entries()){
+    const length=Math.hypot(11,2)-radius-.45,arm=buildServiceArm(factory,index,length),bounds=new THREE.Box3().setFromObject(arm),data=arm.userData.serviceArm;
+    assert.equal(arm.children.length,4);assert.ok(data.triangles<9000);assert.ok(bounds.min.y>=-.001);assert.ok(bounds.max.y<2.11);assert.ok(bounds.min.z>=-1.25&&bounds.max.z<=1.25);assert.ok(Math.abs(bounds.max.x-data.terminal.x)<1e-5);
+    assert.equal(data.covered,index===6);
+    const used=new Set();arm.traverse(node=>{if(!(node instanceof THREE.Mesh))return;assert.ok(!used.has(node.material));used.add(node.material);for(const attribute of Object.values(node.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value));node.geometry.dispose()});
+  }
+  assert.equal(materials.size,4);materials.forEach(mat=>{assert.equal(mat.map,null);mat.dispose()});
+});

@@ -16,6 +16,7 @@ import {buildTrackingDish} from './ApolloTrackingDish';
 import {buildCrawler} from './ApolloCrawler';
 import {buildAssemblyBuilding} from './ApolloAssemblyBuilding';
 import {buildSupportBuilding} from './ApolloSupportBuildings';
+import {buildServiceArm} from './ApolloServiceArm';
 import {cinematicTravel} from './ApolloCinematicMotion';
 import {ApolloExhaust} from './ApolloExhaust';
 
@@ -390,14 +391,17 @@ export class ApolloWorld {
     this.box(3.8, 113, 3.8, silver, tx - 1, 65, tz + 1);
     this.box(3.4, 111, 0.15, dark, tx - 1, 65, tz + 3);
     this.box(23, 1.1, 2, steel, tx + 5, 124, tz - 2);
-    for (const y of [23, 40, 53, 67, 82, 94, 102]) {
-      const arm = new THREE.Group(); arm.position.set(tx + 6, y, tz + 2);
-      this.box(10.7, 0.65, 2.3, steel, 5.35, 0, 0, arm);
-      this.box(10, 0.15, 2.5, silver, 5.3, 0.45, 0, arm);
-      for (let i = 0; i < 5; i++) {
-        this.beam(new THREE.Vector3(i * 2, 0, -1.1), new THREE.Vector3(i * 2 + 2, 1.6, -1.1), 0.14, steel, arm);
-        this.box(0.11, 1.6, 0.11, steel, i * 2, 1.1, 1.1, arm);
-      }
+    // Radii at the declared terminal heights (arm y + .1, rocket base 8.5).
+    // Aim radially at the skin rather than burying a full-width deck inside it.
+    const armMounts = [[23,5.05],[40,5.05],[53,5.05],[67,5.05],[82,3.3],[94,3.18],[102,2]];
+    for (const [index,[y,radius]] of armMounts.entries()) {
+      const x=tx+6,z=tz+6,restYaw=-Math.atan2(-z,-x);
+      const arm=buildServiceArm((name,color,roughness,metalness)=>this.material(name,color,roughness,metalness),index,Math.hypot(x,z)-radius-.45);
+      arm.position.set(x,y,z);arm.rotation.y=restYaw;
+      arm.userData.restYaw=restYaw;arm.userData.connectionRadius=radius;
+      // The hinge bearer joins both existing tower columns, including levels
+      // between floors; the swing pivot never floats independently of the tower.
+      this.box(.38,.32,12,steel,x,y,tz);
       this.scene.add(arm); this.arms.push(arm);
     }
     for (const x of [-37, 37]) {
@@ -938,7 +942,11 @@ export class ApolloWorld {
       this.target.visible = !mode && !!this.targetPoint;
     }
     this.cinematicElapsed = Math.max(0, elapsedSeconds);
-    this.arms.forEach((arm, i) => { if (i === this.arms.length - 1) arm.rotation.y = mode === 'crew' ? 0 : -Math.PI * 0.68; });
+    this.arms.forEach((arm, i) => {
+      const restYaw=arm.userData.restYaw ?? 0;
+      if(mode==='crew'||mode==='intro')arm.rotation.y=restYaw;
+      if(i===this.arms.length-1)arm.rotation.y=restYaw+(mode==='crew'?0:-Math.PI*.68);
+    });
   }
   /** Diagonal movement is normalized; axis-separated capsule/AABB sweep prevents
    * moving through closed buildings, props or the fenced 39A exclusion circle. */
@@ -1164,7 +1172,7 @@ export class ApolloWorld {
     this.exhaust.pose(t, ignition, this.reducedMotion);
     this.exhaustLight.intensity = ignition * 90; this.exhaustLight.position.y = 10 + height;
     // Swing away in a staggered sequence before the stack clears the tower.
-    this.arms.forEach((a, i) => { a.rotation.y = i === this.arms.length - 1 ? -Math.PI * .68 : -THREE.MathUtils.smootherstep(t, 8.6 + i * .11, 9.6 + i * .11) * Math.PI * .68; });
+    this.arms.forEach((a, i) => { a.rotation.y = (a.userData.restYaw ?? 0) - (i === this.arms.length - 1 ? 1 : THREE.MathUtils.smootherstep(t, 8.6 + i * .11, 9.6 + i * .11)) * Math.PI * .68; });
     const shake = t > 2 && t < 22 && !this.reducedMotion ? Math.sin(t * 36) * 0.07 * ignition : 0;
     if (t < 3) { this.camera.position.set(95, 44, 160); this.cameraLook.set(0, 60, 0); }
     else if (t < 6.5) { this.camera.position.set(23, 12, 38); this.cameraLook.set(0, 15, 0); }
