@@ -61,6 +61,8 @@ export class ApolloWorld {
   private clock = 0;
   private playerRoot = new THREE.Group();
   private verticalVelocity = 0;
+  private planarVelocity = new THREE.Vector2();
+  private travelSpeed = 0;
   private grounded = true;
   private crewRoot = new THREE.Group();
   private rocket = new THREE.Group();
@@ -915,7 +917,7 @@ export class ApolloWorld {
   setCinematic(mode: Mode, elapsedSeconds: number): void {
     if (mode !== this.mode) {
       this.mode = mode;
-      this.keys.clear();
+      this.onBlur();
       this.crewRoot.visible = mode === 'crew'; this.van.visible = mode === 'crew';
       this.playerRoot.visible = mode === null;
       this.target.visible = !mode && !!this.targetPoint;
@@ -931,20 +933,35 @@ export class ApolloWorld {
     return !this.colliders.some(c => Math.abs(x - c.x) < c.w + 0.4 && Math.abs(z - c.z) < c.d + 0.4);
   }
   private move(dt: number): boolean {
-    if (this.suspended || this.mode) return false;
+    this.travelSpeed = 0;
+    if (this.suspended || this.mode || dt <= 0) return false;
     let forward = this.gamepadMoveY || this.touchMoveY || (Number(this.keys.has('w') || this.keys.has('arrowup')) - Number(this.keys.has('s') || this.keys.has('arrowdown')));
     let right = this.gamepadMoveX || this.touchMoveX || (Number(this.keys.has('d') || this.keys.has('arrowright')) - Number(this.keys.has('a') || this.keys.has('arrowleft')));
-    if (!forward && !right) return false;
+    if (!forward && !right) { this.planarVelocity.set(0, 0); return false; }
     const norm = Math.max(1, Math.hypot(forward, right)); forward /= norm; right /= norm;
     const speed = this.keys.has('shift') || this.touchSprint || this.gamepadSprint ? 10 : 5.2;
-    const dx = (-Math.sin(this.yaw) * forward + Math.cos(this.yaw) * right) * speed * dt;
-    const dz = (-Math.cos(this.yaw) * forward - Math.sin(this.yaw) * right) * speed * dt;
+    const targetX = (-Math.sin(this.yaw) * forward + Math.cos(this.yaw) * right) * speed;
+    const targetZ = (-Math.cos(this.yaw) * forward - Math.sin(this.yaw) * right) * speed;
+    // Integrate the exponential acceleration analytically, so a 30 Hz frame
+    // travels the same distance as four 120 Hz frames. Release remains crisp.
+    const decay = Math.exp(-28 * dt), integral = (1 - decay) / 28;
+    const dx = targetX * dt + (this.planarVelocity.x - targetX) * integral;
+    const dz = targetZ * dt + (this.planarVelocity.y - targetZ) * integral;
+    this.planarVelocity.set(targetX + (this.planarVelocity.x - targetX) * decay, targetZ + (this.planarVelocity.y - targetZ) * decay);
+    const startX = this.player.x, startZ = this.player.z;
     // Substeps cap wall crossings even after a slow frame.
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.25));
     for (let i = 0; i < steps; i++) { if (this.canMove(this.player.x + dx / steps, this.player.z)) this.player.x += dx / steps; if (this.canMove(this.player.x, this.player.z + dz / steps)) this.player.z += dz / steps; }
     // Face the actual displacement vector, not the input axes, so camera
     // relative movement and the walk animation always agree visually.
-    this.playerRoot.rotation.y = Math.atan2(dx, dz);
+    const travelledX = this.player.x - startX, travelledZ = this.player.z - startZ;
+    this.travelSpeed = Math.hypot(travelledX, travelledZ) / dt;
+    if (Math.abs(travelledX - dx) > .00001) this.planarVelocity.x = 0;
+    if (Math.abs(travelledZ - dz) > .00001) this.planarVelocity.y = 0;
+    if (this.travelSpeed < .001) return false;
+    const heading = Math.atan2(travelledX, travelledZ);
+    const turn = Math.atan2(Math.sin(heading - this.playerRoot.rotation.y), Math.cos(heading - this.playerRoot.rotation.y));
+    this.playerRoot.rotation.y += turn * (1 - Math.exp(-18 * dt));
     return true;
   }
   /** Small, frame-independent life pass for support hardware and field staff. */
@@ -1025,9 +1042,11 @@ export class ApolloWorld {
       const jump = this.people[0]?.jump;
       jump?.reset().setEffectiveWeight(1).play();
     }
-    if (!this.grounded) {
+    if (!this.grounded && !this.suspended && !this.mode) {
+      // Ballistic integration preserves jump height at different frame rates;
+      // pausing must freeze velocity as well as the visible position.
+      this.player.y = Math.max(0, this.player.y + this.verticalVelocity * dt - 9 * dt * dt);
       this.verticalVelocity -= 18 * dt;
-      this.player.y = Math.max(0, this.player.y + this.verticalVelocity * dt);
       if (this.player.y === 0) {
         this.verticalVelocity = 0; this.grounded = true;
         this.people[0]?.jump?.stop().setEffectiveWeight(0);
@@ -1050,6 +1069,11 @@ export class ApolloWorld {
         // Finish the fade so inactive clips stop consuming CPU time.
         action.setEffectiveWeight(Math.abs(next-target)<.001 ? target : next);
       };
+      if (i === 0 && walking) {
+        // Pace follows resolved travel, including analog input and wall slides.
+        p.walk?.setEffectiveTimeScale(clamp(this.travelSpeed / 5.2, .15, 1.25));
+        p.run?.setEffectiveTimeScale(clamp(this.travelSpeed / 10, .15, 1.25));
+      }
       blend(p.walk,!airborne && walking && (!running || !p.run) ? 1 : 0);
       blend(p.run,!airborne && running ? 1 : 0);
       // This asset has no jump clip. Keep its authored idle pose in the air
@@ -1162,7 +1186,7 @@ export class ApolloWorld {
   diagnostics(): Record<string, unknown> {
     const info = this.renderer.info;
     const times = [...this.frameDurations].sort((a, b) => a - b);
-    return { engine: 'Three.js', player: this.player.toArray(), yaw: this.yaw, quality: this.quality, drawCalls: info.render.calls, triangles: info.render.triangles, geometries: info.memory.geometries, textures: info.memory.textures, pixelRatio: this.renderer.getPixelRatio(), shadowMap: this.renderer.shadowMap.enabled ? this.sun.shadow.mapSize.x : 0, shadowLights: this.renderer.shadowMap.enabled ? 1 : 0, samples: times.length, meanFrameMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0, p95FrameMs: times[Math.floor(times.length * 0.95)] ?? 0, rocketHeightMeters: 110.6, colliders: this.colliders.length, launchY: this.rocket.position.y, crew: this.crew.length, technicians: this.technicians.length, animatedVehicles: this.vehicleRigs.length, loadedModel: { ...this.loadedModel, playerBounds: new THREE.Box3().setFromObject(this.playerRoot).getSize(new THREE.Vector3()).toArray(), modelScale: this.playerRoot.children[0]?.scale.toArray() }, assetErrors: [...this.assetErrors], originalProps:true, softSmoke:true, stationIndicators:0 };
+    return { engine: 'Three.js', player: this.player.toArray(), motion: { speed: this.travelSpeed, verticalVelocity: this.verticalVelocity, grounded: this.grounded, controller: 'kinematic AABB sweep; analytic acceleration and gravity' }, yaw: this.yaw, quality: this.quality, drawCalls: info.render.calls, triangles: info.render.triangles, geometries: info.memory.geometries, textures: info.memory.textures, pixelRatio: this.renderer.getPixelRatio(), shadowMap: this.renderer.shadowMap.enabled ? this.sun.shadow.mapSize.x : 0, shadowLights: this.renderer.shadowMap.enabled ? 1 : 0, samples: times.length, meanFrameMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0, p95FrameMs: times[Math.floor(times.length * 0.95)] ?? 0, rocketHeightMeters: 110.6, colliders: this.colliders.length, launchY: this.rocket.position.y, crew: this.crew.length, technicians: this.technicians.length, animatedVehicles: this.vehicleRigs.length, loadedModel: { ...this.loadedModel, playerBounds: new THREE.Box3().setFromObject(this.playerRoot).getSize(new THREE.Vector3()).toArray(), modelScale: this.playerRoot.children[0]?.scale.toArray() }, assetErrors: [...this.assetErrors], originalProps:true, softSmoke:true, stationIndicators:0 };
   }
   private onKeyDown = (event: KeyboardEvent): void => {
     if ((event.target as HTMLElement)?.closest('input,textarea,select,button')) return;
@@ -1173,7 +1197,7 @@ export class ApolloWorld {
   };
   private onKeyUp = (event: KeyboardEvent): void => { this.keys.delete(event.key.toLowerCase()); };
   private onBlur = (): void => {
-    this.keys.clear(); this.touchMoveX = 0; this.touchMoveY = 0; this.touchSprint = false;
+    this.keys.clear(); this.planarVelocity.set(0, 0); this.travelSpeed = 0; this.touchMoveX = 0; this.touchMoveY = 0; this.touchSprint = false;
     this.gamepadMoveX = 0; this.gamepadMoveY = 0; this.gamepadSprint = false; this.activeGamepadIndex = null; this.previousGamepadButtons = [];
     const pointer=this.lastPointer;this.lastPointer=null;
     if(pointer&&this.renderer.domElement.hasPointerCapture(pointer.id))this.renderer.domElement.releasePointerCapture(pointer.id);

@@ -32,3 +32,11 @@ Core-loop contract: adjust aim and focus, match documentary cards and reproduce 
 Level plan: orientation scoped Saturn capture/map/physicalarrival; complex three optical observations; documentation slot-matching; radio frequency/gain lock+timed pulses; historical crew retrospective; camera aim/focus/recording; transfer to safe launch and epilogue. All remain educational support abstractions.
 
 Ownership: lead Safari play, root integration, HUD/dialogue presentation, draft save, QA/publication/private memory. Instrument worker new rules/panels only; voice worker locale/voice/dialogue only; visual worker world/props only. New props: detailed receiver/CRT, optical camera, document equipment, period van/service kit and soft smoke. Target no regression in scale, collider paths or performance.
+
+# Motion and cinematic continuation · 2026-11-01
+
+Intent: improve the existing Apollo experience with coherent movement, cinematic blocking and launch effects. Preserve mission rules, original scale, licensed character and current authored world. Pre-existing selector edits and untracked assets remain outside this work.
+
+Movement pass: analytically integrated acceleration and jump gravity; actual collision-resolved speed drives animation pacing; shortest-arc heading blend; pause freezes airborne position/velocity/pose; focus/cinematic transitions clear all movement intents. Existing kinematic AABB sweeps remain appropriate for the flat support route; no new rigid-body engine, sensors or colliders.
+
+Verification: 103 existing unit tests and typecheck PASS. Extended real-input movement acceptance PASS, including walking/running/touch sprint/jump/landing, airborne pause, 30/60/120 Hz trajectory agreement, blocked idle, short-arc turn, suspension and focus loss. Next: independent review, exact-commit production build/publication; then crew/camera/exhaust follow-up and motion evidence.
