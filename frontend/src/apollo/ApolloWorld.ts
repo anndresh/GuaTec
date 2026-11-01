@@ -12,6 +12,8 @@ import { buildStandModel, createStandAtlas, standCollisionProxies, type StandMod
 import {SITE_BUILDINGS,SITE_PLOTS,SITE_ROADS,SITE_WALKWAYS,SITE_ZONES,zoneBounds} from './ApolloSiteLayout';
 import {standIndicatorPosition,standUsesPower} from './ApolloStandDesigns';
 import {batchCharacterMeshes} from './ApolloCharacterBatches';
+import {buildTrackingDish} from './ApolloTrackingDish';
+import {buildCrawler} from './ApolloCrawler';
 
 export type ApolloQuality = 'low' | 'medium' | 'high';
 type Mode = 'intro' | 'crew' | 'launch' | null;
@@ -406,9 +408,47 @@ export class ApolloWorld {
     this.cylinder(2.1, 3.3, 6, white, 0, 88, 0, this.rocket, 48);
     this.cylinder(2, 2, 4, aluminum, 0, 93, 0, this.rocket, 48);
     this.cylinder(0.1, 2, 3.2, aluminum, 0, 96.6, 0, this.rocket, 48);
-    this.cylinder(0.1, 0.22, 9.1, white, 0, 105.95, 0, this.rocket, 16);
-    this.cylinder(0.5, 0.5, 3.2, white, 0, 102, 0, this.rocket, 16);
-    this.cylinder(0.01, 0.13, 0.1, white, 0, 110.55, 0, this.rocket, 16);
+    // The escape assembly is physically connected to the command capsule.
+    // An open four-leg truss replaces the former floating rod above its apex.
+    this.cylinder(.24, .72, 1.2, white, 0, 98.45, 0, this.rocket, 24);
+    const towerCorner = (y: number): number => .45 + (.27 - .45) * (y - 98) / 6.1;
+    for (const x of [-1, 1]) for (const z of [-1, 1]) {
+      const a = new THREE.Vector3(x * .45, 98, z * .45);
+      const b = new THREE.Vector3(x * .27, 104.1, z * .27);
+      this.beam(a, b, .09, white, this.rocket);
+      this.beam(new THREE.Vector3(x * towerCorner(100.5), 100.5, z * towerCorner(100.5)), new THREE.Vector3(-x * towerCorner(102.7), 102.7, z * towerCorner(102.7)), .045, aluminum, this.rocket);
+      this.beam(new THREE.Vector3(x * towerCorner(102.7), 102.7, z * towerCorner(102.7)), new THREE.Vector3(x * towerCorner(102.7), 102.7, -z * towerCorner(102.7)), .06, white, this.rocket);
+    }
+    this.cylinder(.36, .36, 4.0, white, 0, 106, 0, this.rocket, 24);
+    this.cylinder(.01, .36, 2.6, white, 0, 109.3, 0, this.rocket, 24);
+    for (const y of [104.12, 107.6]) this.cylinder(.38, .38, .1, aluminum, 0, y, 0, this.rocket, 24);
+    for (let i = 0; i < 4; i++) {
+      const angle = i * Math.PI / 2 + Math.PI / 4;
+      const nozzle = this.cylinder(.09, .17, .45, aluminum, Math.sin(angle) * .36, 104.24, Math.cos(angle) * .36, this.rocket, 10);
+      nozzle.quaternion.setFromUnitVectors(UP, new THREE.Vector3(Math.sin(angle) * .6, -1, Math.cos(angle) * .6).normalize());
+    }
+    // Service-module radiators, panel seams and four reaction-control clusters.
+    for (let i = 0; i < 4; i++) {
+      const angle = i * Math.PI / 2;
+      const panel = new THREE.Mesh(new THREE.CylinderGeometry(2.012, 2.012, 2.5, 8, 1, true, angle + .25, .68), white);
+      panel.position.y = 92.85; this.rocket.add(panel);
+      for (let line = 0; line < 4; line++) {
+        const seam = new THREE.Mesh(new THREE.CylinderGeometry(2.022, 2.022, .025, 8, 1, true, angle + .25, .68), aluminum);
+        seam.position.y = 91.95 + line * .6; this.rocket.add(seam);
+      }
+      const cluster = new THREE.Group(); cluster.position.set(Math.sin(angle) * 2.08, 94, Math.cos(angle) * 2.08); cluster.rotation.y = angle;
+      this.box(.32, .42, .3, aluminum, 0, 0, 0, cluster);
+      for (const side of [-1, 1]) {
+        const jet = this.cylinder(.065, .14, .28, nozzle, side * .24, 0, .05, cluster, 10);
+        jet.rotation.z = side * Math.PI / 2;
+      }
+      this.rocket.add(cluster);
+    }
+    for (const [radius, bottom, top] of [[5.12, 12, 37], [5.12, 51, 65.5], [3.38, 75, 83]] as const) {
+      const angle = Math.PI * .27;
+      this.cylinder(.09, .09, top - bottom, white, Math.sin(angle) * radius, (bottom + top) / 2, Math.cos(angle) * radius, this.rocket, 8);
+      for (let y = bottom; y <= top; y += 2) this.box(.22, .08, .22, aluminum, Math.sin(angle) * radius, y, Math.cos(angle) * radius, this.rocket);
+    }
     const bands = [6.6, 9.8, 12.2, 38.5, 41, 47.8, 50, 66.5, 68.7, 74.5, 83.7];
     for (const y of bands) this.cylinder(y > 70 ? 3.33 : 5.08, y > 70 ? 3.33 : 5.08, 0.19, aluminum, 0, y, 0, this.rocket, 64);
     // Roll-pattern panels follow cylinder curvature, rather than rectangular sticks.
@@ -512,14 +552,8 @@ export class ApolloWorld {
       ['LA TRIPULACIÓN','05 · RECREACIÓN HISTÓRICA','crew'],['OBSERVACIÓN','06 · CÁMARA DE SEGUIMIENTO','camera'],
     ];
     SITE_PLOTS.slice(0,6).forEach((plot,i)=>this.station(plot.target.x,plot.target.z,...labels[i]!));
-    const steel = this.material('galvanized', 0xa4aaa5, 0.58, 0.7);
-    // Deep-space style parabolic dish, original geometry; visual educational approximation.
-    const g = new THREE.Group(); g.position.set(83, 0, 254);
-    this.cylinder(0.6, 1, 7, steel, 0, 3.5, 0, g);
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(4.8, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.43), this.material('dish', 0xd0d1c5, 0.6, 0.45));
-    dish.rotation.z = 0.6; dish.position.y = 8; g.add(dish);
-    this.beam(new THREE.Vector3(0, 8, 0), new THREE.Vector3(0, 12, 0), 0.1, steel, g);
-    this.scene.add(g);
+    const dish = buildTrackingDish((name, color, roughness, metalness) => this.material(name, color, roughness, metalness));
+    dish.position.set(83, 0, 254); this.scene.add(dish);
     this.colliders.push({ x: 83, z: 254, w: 3.8, d: 3.8 });
     // Tracking tripod at the spectator area is a distinct authored piece.
     for (let i = 0; i < 6; i++) this.colliders.push(buildBench(this.furniture, -22 + i * 9, 398, 0, 3.2, i % 2 === 0));
@@ -613,13 +647,8 @@ export class ApolloWorld {
       this.colliders.push({ x, z, w: CAR_SPECS[kind].length / 2 + .35, d: CAR_SPECS[kind].width / 2 + .35 });
     }
     // Crawler is parked off the active pad, consistent with launch operations.
-    const crawler = new THREE.Group(); crawler.position.set(-235, 0, 52);
-    const steel = this.material('crawler', 0x63746e, 0.75, 0.5);
-    this.box(40, 4, 35, steel, 0, 5, 0, crawler);
-    for (const x of [-15, 15]) for (const z of [-12, 12]) {
-      this.box(8, 3.8, 8, this.material('crawler-track', 0x343e3c), x, 2, z, crawler);
-      for (let i = 0; i < 9; i++) this.box(8.1, 0.08, 0.18, steel, x, 3.95, z - 3.5 + i * 0.85, crawler);
-    }
+    const crawler = buildCrawler((name, color, roughness, metalness) => this.material(name, color, roughness, metalness));
+    crawler.position.set(-235, 0, 52);
     this.scene.add(crawler);
   }
   private buildServiceDetails():void {

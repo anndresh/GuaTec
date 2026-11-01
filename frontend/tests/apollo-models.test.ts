@@ -4,6 +4,44 @@ import * as THREE from 'three';
 import { buildStandModel, standCollisionProxies, type StandModelKind } from '../src/apollo/ApolloStandModels';
 import { buildCar, CAR_SPECS } from '../src/apollo/ApolloVehicles';
 import {STAND_DESIGNS} from '../src/apollo/ApolloStandDesigns';
+import {buildCrawler} from '../src/apollo/ApolloCrawler';
+import {buildTrackingDish} from '../src/apollo/ApolloTrackingDish';
+
+test('ground support machinery preserves its footprint and bounded untextured batches', () => {
+  const materials = new Map<string, THREE.MeshStandardMaterial>();
+  const factory = (name: string, color: number, roughness = .8, metalness = 0) => {
+    if (!materials.has(name)) materials.set(name, new THREE.MeshStandardMaterial({color, roughness, metalness}));
+    return materials.get(name)!;
+  };
+  for (const {model, maxBatches, maxTriangles, minHeight, maxHeight, width, depth} of [
+    {model: buildCrawler(factory), maxBatches: 8, maxTriangles: 22_000, minHeight: 7, maxHeight: 9, width: 43, depth: 38},
+    {model: buildTrackingDish(factory), maxBatches: 4, maxTriangles: 12_000, minHeight: 9, maxHeight: 12, width: 7.6, depth: 7.6},
+  ]) {
+    const bounds = new THREE.Box3().setFromObject(model), size = bounds.getSize(new THREE.Vector3());
+    assert.ok(bounds.min.y >= -.01 && size.y >= minHeight && bounds.max.y <= maxHeight, model.name + ': supported metre-scale height');
+    assert.ok(Math.abs(bounds.min.x) <= width / 2 && Math.abs(bounds.max.x) <= width / 2, model.name + ': width fits existing footprint');
+    assert.ok(Math.abs(bounds.min.z) <= depth / 2 && Math.abs(bounds.max.z) <= depth / 2, model.name + ': depth fits existing footprint');
+    const used = new Set<THREE.Material>(); let triangles = 0;
+    model.traverse(node => {
+      if (!(node instanceof THREE.Mesh)) return;
+      assert.ok(!Array.isArray(node.material));
+      const material = node.material as THREE.MeshStandardMaterial;
+      assert.ok([...materials.values()].includes(material));
+      assert.equal(material.map, null, 'mechanical detail does not allocate textures');
+      assert.ok(!used.has(material), 'rigid detail is merged once per material'); used.add(material);
+      assert.equal(node.geometry.groups.length, 0, 'batches have no hidden material draw groups');
+      const vertices = node.geometry.getAttribute('position');
+      triangles += (node.geometry.index?.count ?? vertices.count) / 3;
+      for (const attribute of Object.values(node.geometry.attributes)) {
+        for (const value of attribute.array) assert.ok(Number.isFinite(value), model.name + ': finite attribute data');
+      }
+      node.geometry.dispose();
+    });
+    assert.ok(used.size <= maxBatches, model.name + ': bounded draw calls');
+    assert.ok(triangles <= maxTriangles, model.name + ': bounded triangle cost');
+  }
+  materials.forEach(material => material.dispose());
+});
 
 test('every stand builds finite human-scale geometry with bounded shared material batches', () => {
   const atlas = new THREE.Texture(), materials = new Map<string,THREE.MeshStandardMaterial>();
