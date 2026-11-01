@@ -16,6 +16,8 @@ import {buildTrackingDish} from './ApolloTrackingDish';
 import {buildCrawler} from './ApolloCrawler';
 import {buildAssemblyBuilding} from './ApolloAssemblyBuilding';
 import {buildSupportBuilding} from './ApolloSupportBuildings';
+import {cinematicTravel} from './ApolloCinematicMotion';
+import {ApolloExhaust} from './ApolloExhaust';
 
 export type ApolloQuality = 'low' | 'medium' | 'high';
 type Mode = 'intro' | 'crew' | 'launch' | null;
@@ -79,7 +81,15 @@ export class ApolloWorld {
   private exhaustLight = new THREE.PointLight(0xffa139, 0, 240, 1.5);
   private target = new THREE.Group();
   private targetPoint: { x: number; z: number } | null = null;
-  private flames: THREE.Mesh[] = [];
+  private exhaust = new ApolloExhaust();
+  private introRail = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(1500,180,800), new THREE.Vector3(500,120,330),
+    new THREE.Vector3(110,85,230), new THREE.Vector3(-80,48,210), new THREE.Vector3(-30,8,140),
+  ]);
+  private introAim = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,50,0), new THREE.Vector3(0,60,0), new THREE.Vector3(-5,50,15),
+    new THREE.Vector3(-10,22,65), new THREE.Vector3(-10,10,100),
+  ]);
   private smoke: THREE.InstancedMesh;
   private smokeCount = 100;
   private dummy = new THREE.Object3D();
@@ -172,8 +182,15 @@ export class ApolloWorld {
     // Keep the astronaut readable as a third-person hero from the first frame.
     this.camera.position.set(this.player.x, 3.35, this.player.z + 5.8); this.camera.lookAt(this.player.x, 1.35, this.player.z);
     this.buildMarker();
-    const smokeMaterial = new THREE.MeshBasicMaterial({ map:createSmokeTexture(), color:0xe8e3d6, transparent:true, opacity:.72, depthWrite:false, side:THREE.DoubleSide });
+    const smokeMaterial = new THREE.MeshBasicMaterial({ map:createSmokeTexture(), color:0xe8e3d6, transparent:true, opacity:.72, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true });
+    smokeMaterial.onBeforeCompile = shader => {
+      shader.vertexShader = 'attribute float smokeOpacity;\nvarying float vSmokeOpacity;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSmokeOpacity = smokeOpacity;');
+      shader.fragmentShader = 'varying float vSmokeOpacity;\n' + shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vSmokeOpacity;');
+    };
+    smokeMaterial.customProgramCacheKey = () => 'apollo-birth-aged-smoke-v1';
     this.smoke = new THREE.InstancedMesh(new THREE.PlaneGeometry(2,2), smokeMaterial, this.smokeCount);
+    this.smoke.geometry.setAttribute('smokeOpacity', new THREE.InstancedBufferAttribute(new Float32Array(this.smokeCount),1).setUsage(THREE.DynamicDrawUsage));
+    this.smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.smoke.frustumCulled = false;
     this.smoke.visible = false;
     this.scene.add(this.smoke);
@@ -493,13 +510,9 @@ export class ApolloWorld {
         const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.022,4,32),aluminum);
         ring.rotation.x=Math.PI/2;ring.position.set(x,y,z);this.rocket.add(ring);
       }
-      const flame = new THREE.Mesh(new THREE.ConeGeometry(1.6, 18, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xff9c22, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
-      flame.rotation.z = Math.PI; flame.position.set(x, -7.9, z); flame.visible = false;
-      this.rocket.add(flame); this.flames.push(flame);
-      const core = new THREE.Mesh(new THREE.ConeGeometry(1, 10, 12), new THREE.MeshBasicMaterial({ color: 0xfff8ce, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending }));
-      core.rotation.z = Math.PI; core.position.set(x, -3.9, z); core.visible = false;
-      this.rocket.add(core); this.flames.push(core);
+
     }
+    this.rocket.add(this.exhaust);
     for (let i = 0; i < 4; i++) {
       const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(3.5, 0); shape.lineTo(0, 6); shape.closePath();
       const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.16, bevelEnabled: false }), aluminum);
@@ -1059,7 +1072,8 @@ export class ApolloWorld {
     for (let i = 0; i < this.people.length; i++) {
       const p = this.people[i];
       const airborne = i === 0 && !this.grounded;
-      const walking = i === 0 ? moving : this.mode === 'crew';
+      const crewTravel = i > 0 && this.mode === 'crew' ? cinematicTravel(this.cinematicElapsed,48) : null;
+      const walking = i === 0 ? moving : !!crewTravel && crewTravel.speed > .03;
       const running = i === 0 && walking && (this.keys.has('shift') || this.touchSprint || this.gamepadSprint);
       const animationDt = this.suspended && !this.mode ? 0 : dt;
       const blend = (action:THREE.AnimationAction|null,target:number) => {
@@ -1074,6 +1088,7 @@ export class ApolloWorld {
         p.walk?.setEffectiveTimeScale(clamp(this.travelSpeed / 5.2, .15, 1.25));
         p.run?.setEffectiveTimeScale(clamp(this.travelSpeed / 10, .15, 1.25));
       }
+      if (i > 0 && crewTravel) p.walk?.setEffectiveTimeScale(clamp(crewTravel.speed / 2, .05, 1.25));
       blend(p.walk,!airborne && walking && (!running || !p.run) ? 1 : 0);
       blend(p.run,!airborne && running ? 1 : 0);
       // This asset has no jump clip. Keep its authored idle pose in the air
@@ -1119,34 +1134,29 @@ export class ApolloWorld {
     this.renderer.render(this.scene, this.camera);
   }
   private introCamera(t: number): void {
-    if (t < 10) {
-      const p = t / 10;
-      this.camera.position.set(1500 - p * 1000, 180 - p * 60, 800 - p * 470); this.cameraLook.set(0, 50, 0);
-    } else if (t < 25) {
-      const p = (t - 10) / 15;
-      this.camera.position.set(500 - p * 420, 120 - p * 35, 330 - p * 110); this.cameraLook.set(0, 64, 0);
-    } else {
-      const p = clamp((t - 25) / 11, 0, 1);
-      this.camera.position.set(-80 + p * 50, 85 - p * 77, 220 - p * 80); this.cameraLook.set(-10, 50 - p * 40, 70 + p * 30);
-    }
-    this.camera.lookAt(this.cameraLook);
+    const p = THREE.MathUtils.smootherstep(t, 0, 36);
+    this.introRail.getPoint(p, this.camera.position);
+    this.introAim.getPoint(p, this.cameraLook);
+    this.camera.fov = 62; this.camera.updateProjectionMatrix(); this.camera.lookAt(this.cameraLook);
   }
   private crewCamera(t: number): void {
-    const p = clamp(t / 24, 0, 1);
-    this.crew.forEach((root, i) => { root.position.set(-8 + i * 2, 0, 77 - p * 48 + i * 2); root.rotation.y = Math.PI; });
-    this.van.position.set(-16, 0, 76 - p * 44);
-    poseVehicle(this.van, p * 44, t > 0 && t < 24 ? 44 / 24 : 0, t, this.reducedMotion);
+    const travel = cinematicTravel(t, 48), transport = cinematicTravel(t, 44);
+    const p = clamp(t / 24, 0, 1), distance = travel.distance;
+    this.crew.forEach((root, i) => { root.position.set(-8 + i * 2, 0, 77 - distance + i * 2); root.rotation.y = Math.PI; });
+    this.van.position.set(-16, 0, 76 - transport.distance);
+    poseVehicle(this.van, transport.distance, transport.speed, t, this.reducedMotion, transport.acceleration);
     if (t < 7) {
-      this.camera.position.set(5, 3.1, 65 - p * 48);
-      this.cameraLook.set(-5, 1.8, 77 - p * 48);
+      this.camera.position.set(5 - p * 3, 3.1, 65 - distance);
+      this.cameraLook.set(-5, 1.8, 77 - distance);
     } else if (t < 17) {
-      this.camera.position.set(20, 4.2, 86 - p * 48);
-      this.cameraLook.set(-5, 8, 64 - p * 48);
+      const dolly = THREE.MathUtils.smoothstep(t, 7, 17);
+      this.camera.position.set(-20 + dolly * 2, 3.2 + dolly * .4, 88 - distance);
+      this.cameraLook.set(-7, 1.8, 77 - distance);
     } else {
-      this.camera.position.set(73, 39, 130);
+      this.camera.position.set(73 - (t - 17) * .7, 39 + (t - 17) * .3, 130);
       this.cameraLook.set(0, 52, 0);
     }
-    this.camera.fov = 62; this.camera.updateProjectionMatrix(); this.camera.lookAt(this.cameraLook);
+    this.camera.fov = t < 7 ? 54 : t < 17 ? 48 : 62; this.camera.updateProjectionMatrix(); this.camera.lookAt(this.cameraLook);
     this.crew.forEach(root => root.children[1]?.lookAt(this.camera.position));
   }
   private launchCamera(t: number): void {
@@ -1154,22 +1164,11 @@ export class ApolloWorld {
     const height = after * after * 0.9;
     this.rocket.position.y = 8.5 + height;
     const ignition = clamp((t - 1) / 7, 0, 1);
-    this.flames.forEach((f, i) => { f.visible = ignition > 0; f.scale.set(0.8 + ignition * 0.2, ignition * (0.9 + Math.sin(t * 35 + i) * 0.1), 0.8 + ignition * 0.2); });
+    this.exhaust.pose(t, ignition, this.reducedMotion);
     this.exhaustLight.intensity = ignition * 90; this.exhaustLight.position.y = 10 + height;
-    this.arms.forEach((a, i) => { a.rotation.y = i === this.arms.length - 1 ? -Math.PI * 0.68 : -clamp((t - 10) / 1.5, 0, 1) * Math.PI * 0.68; });
-    this.smoke.visible = ignition > 0;
-    if (ignition > 0) {
-      for (let i = 0; i < this.smokeCount; i++) {
-        const age = ((t * 0.16 + i / this.smokeCount) % 1);
-        const a = i * 2.399;
-        const spread = age * 110 * ignition;
-        this.dummy.position.set(Math.sin(a) * spread, 2 + age * 20 + Math.min(height * 0.5, age * 80), Math.cos(a) * spread * 0.65);
-        const scale = (3 + age * 15) * ignition;
-        this.dummy.scale.set(scale*1.35, scale, 1);this.dummy.quaternion.copy(this.camera.quaternion);this.dummy.rotateZ(a+age*.3);this.dummy.updateMatrix();this.smoke.setMatrixAt(i,this.dummy.matrix);
-      }
-      this.smoke.instanceMatrix.needsUpdate = true;
-    }
-    const shake = t > 2 && t < 22 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? Math.sin(t * 36) * 0.07 * ignition : 0;
+    // Swing away in a staggered sequence before the stack clears the tower.
+    this.arms.forEach((a, i) => { a.rotation.y = i === this.arms.length - 1 ? -Math.PI * .68 : -THREE.MathUtils.smootherstep(t, 8.6 + i * .11, 9.6 + i * .11) * Math.PI * .68; });
+    const shake = t > 2 && t < 22 && !this.reducedMotion ? Math.sin(t * 36) * 0.07 * ignition : 0;
     if (t < 3) { this.camera.position.set(95, 44, 160); this.cameraLook.set(0, 60, 0); }
     else if (t < 6.5) { this.camera.position.set(23, 12, 38); this.cameraLook.set(0, 15, 0); }
     else if (t < 9) { this.camera.position.set(-41, 92, 52); this.cameraLook.set(0, 83, 0); }
@@ -1177,6 +1176,35 @@ export class ApolloWorld {
     else { this.camera.position.set(180 + after * 4, 80 + height * 0.45, 350 + after * 8); this.cameraLook.set(0, 58 + height, 0); }
     if (t < 9 || t >= 18) { this.camera.fov = 62; this.camera.updateProjectionMatrix(); }
     this.camera.lookAt(this.cameraLook);
+    this.updateLaunchSmoke(t);
+  }
+  private updateLaunchSmoke(t: number): void {
+    this.smoke.visible = t > 1;
+    const opacity = this.smoke.geometry.getAttribute('smokeOpacity') as THREE.InstancedBufferAttribute;
+    if (!this.smoke.visible) { (opacity.array as Float32Array).fill(0); opacity.needsUpdate = true; return; }
+    this.smokeBillboard.copy(this.camera.quaternion);
+    const lifetime = 9;
+    for (let i = 0; i < this.smokeCount; i++) {
+      const ground = i < Math.ceil(this.smokeCount * .55);
+      const phase = i / this.smokeCount * lifetime;
+      let birth = 1 + phase + Math.floor((t - 1 - phase) / lifetime) * lifetime;
+      // Ground steam stops once the vehicle rises; spent puffs fade out instead
+      // of wrapping to fresh smoke. The remaining batch follows exhaust history.
+      if (ground && birth > 19) birth -= Math.ceil((birth - 19) / lifetime) * lifetime;
+      const age = t - birth;
+      if (birth < 1 || age < 0 || age >= lifetime) { opacity.setX(i, 0); continue; }
+      const throttle = .35 + .65 * THREE.MathUtils.smoothstep(birth, 1, 8);
+      const angle = i * 2.399;
+      const spread = age * (ground ? 6.5 : 2.2) * throttle;
+      const birthHeight = .9 * Math.max(0, birth - 10) ** 2;
+      this.dummy.position.set(Math.sin(angle) * spread + age * 1.4, (ground ? 3 : Math.max(2, birthHeight - 15)) + age * (ground ? 1.8 : 2.5), (ground ? (i % 2 ? -24 : 24) : 0) + Math.cos(angle) * spread * .65);
+      const scale = (3 + age * (ground ? 2.9 : 1.5)) * throttle;
+      this.dummy.scale.set(scale * 1.35, scale, 1);
+      this.dummy.quaternion.copy(this.smokeBillboard); if (!this.reducedMotion) this.dummy.rotateZ(angle + age * .12);
+      this.dummy.updateMatrix(); this.smoke.setMatrixAt(i, this.dummy.matrix);
+      opacity.setX(i, THREE.MathUtils.smoothstep(age, 0, .4) * (1 - THREE.MathUtils.smoothstep(age, 5, lifetime)));
+    }
+    opacity.needsUpdate = true; this.smoke.instanceMatrix.needsUpdate = true;
   }
   resize(): void {
     if (!this.renderer || this.disposed) return;
@@ -1215,7 +1243,9 @@ export class ApolloWorld {
   private disposeObject(root: THREE.Object3D): void {
     const geoms = new Set<THREE.BufferGeometry>(), mats = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
     const skeletons = new Set<THREE.Skeleton>();
-    root.traverse(node => { if (node instanceof THREE.SkinnedMesh) skeletons.add(node.skeleton); if (node instanceof THREE.Mesh) { geoms.add(node.geometry); for (const mat of Array.isArray(node.material) ? node.material : [node.material]) { mats.add(mat); for (const value of Object.values(mat)) if (value instanceof THREE.Texture) textures.add(value); } } });
+    const instances = new Set<THREE.InstancedMesh>();
+    root.traverse(node => { if (node instanceof THREE.InstancedMesh) instances.add(node); if (node instanceof THREE.SkinnedMesh) skeletons.add(node.skeleton); if (node instanceof THREE.Mesh) { geoms.add(node.geometry); for (const mat of Array.isArray(node.material) ? node.material : [node.material]) { mats.add(mat); for (const value of Object.values(mat)) if (value instanceof THREE.Texture) textures.add(value); } } });
+    instances.forEach(instance=>instance.dispose());
     skeletons.forEach(skeleton=>skeleton.dispose());
     geoms.forEach(g => g.dispose()); mats.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
   }

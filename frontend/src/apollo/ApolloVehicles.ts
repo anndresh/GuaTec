@@ -9,15 +9,18 @@ export interface VehicleRig {
 }
 
 /** Deterministic odometry also supports seeking/replaying the crew cinematic. */
-export function poseVehicle(root: THREE.Group, distance: number, speed: number, time: number, reducedMotion = false): void {
+export function poseVehicle(root: THREE.Group, distance: number, speed: number, time: number, reducedMotion = false, acceleration = 0): void {
   const rig = root.userData.vehicleRig as VehicleRig | undefined;
   if (!rig) return;
   for (const wheel of rig.wheels) wheel.rotation.x = -distance / rig.wheelRadius;
   const rolling = Math.min(1, Math.abs(speed) / 2);
   root.position.y = reducedMotion ? 0 : Math.sin(time * 7) * .008 * rolling;
+  // Small nose lift under acceleration and brake dive, derived from the same
+  // seekable trajectory as odometry rather than accumulated spring state.
+  root.rotation.x = reducedMotion ? 0 : THREE.MathUtils.clamp(acceleration * .008, -.015, .015);
   root.rotation.z = reducedMotion ? 0 : Math.sin(time * 3.5) * .002 * rolling;
   rig.headlamp.emissiveIntensity = rolling ? .45 : .18;
-  rig.taillamp.emissiveIntensity = Math.abs(speed) < .2 ? .55 : .18;
+  rig.taillamp.emissiveIntensity = Math.abs(speed) < .2 || acceleration < -.1 ? .55 : .18;
 }
 
 /** Merge rigid surfaces within each joint; never flatten the wheel hierarchy. */
