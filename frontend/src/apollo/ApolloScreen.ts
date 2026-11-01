@@ -10,6 +10,8 @@ import { ApolloDialogue } from './ApolloDialogue';
 import './apollo.css';
 import './ApolloPause.css';
 import './ApolloHud.css';
+import './ApolloMap.css';
+import {apolloDestination,apolloMapStations,apolloMapRequirements,apolloRemotePosition,drawApolloMap,MAP_STATUS_COPY} from './ApolloMap';
 import './apollo-start-error.css';
 import { apolloText, apolloLanguage } from './ApolloLocale';
 import { ApolloVoice } from './ApolloVoice';
@@ -18,7 +20,6 @@ import { mountInstrument, type InstrumentHandle, type InstrumentKind } from './A
 import { FIELD_INSTRUMENTS, fieldDraftKey, restoreFieldDrafts, type FieldDrafts } from './ApolloFieldProgress';
 import { mountBonusMission, type BonusMissionHandle } from './ApolloBonusMissions';
 import { restoreStandDraft, type StandDraft } from './ApolloStandRules';
-import {SITE_BUILDINGS,SITE_ROADS,SITE_WALKWAYS,SITE_ZONES,zoneBounds} from './ApolloSiteLayout';
 import {STAND_HANDOFFS} from './ApolloStandHandoffs';
 
 const SLUG = MISSION_SLUGS.mission1;
@@ -144,7 +145,7 @@ export class ApolloScreen implements Screen {
     if(key==='m'){event.preventDefault();this.openMap();}
   };
   private readonly onVisibility=() => { if(document.hidden && this.started && !this.modal) this.openPause(); };
-  private readonly onResize=() => this.world?.resize();
+  private readonly onResize=() => {this.world?.resize();this.modal?.querySelectorAll<HTMLCanvasElement>('.ap-large-map,.ap-pause-map').forEach(canvas=>this.drawMap(canvas));};
   private readonly onPageHide=() => { if(this.started) void this.save(); };
 
   constructor(private app:GameApp, private initialState?:unknown) {
@@ -576,7 +577,7 @@ export class ApolloScreen implements Screen {
     const language=this.pauseControl('文','Idioma',()=>this.togglePauseLanguage(languageHost));
     language.setAttribute('aria-expanded','false');language.setAttribute('aria-controls','ap-pause-language-options');languageHost.append(language);
     grid.append(resume,mute,restart,missions,languageHost); box.append(grid);
-    const mapCanvas=el('canvas','ap-pause-map'); mapCanvas.width=1100; mapCanvas.height=460; this.drawMap(mapCanvas); box.append(el('h2','ap-pause-map-title','Mapa de operaciones'),mapCanvas);
+    box.append(el('h2','ap-pause-map-title','Mapa de operaciones'),this.buildOperationsMap(true));
   }
   private pauseControl(icon:string,label:string,callback:()=>void):HTMLElement { const b=this.button('',callback,'ap-pause-control'); b.append(el('span','ap-pause-icon',icon),el('strong','',label)); return b; }
   private togglePauseLanguage(host:HTMLElement) {
@@ -605,43 +606,46 @@ export class ApolloScreen implements Screen {
     if(this.instrument){this.notify('Cierra el instrumento para abrir el mapa.');return;}
     if(this.state.checkpoint===0)this.act('map');
     this.modalKind='map'; const box=this.openModal('MAPA DE OPERACIONES · GEOGRAFÍA COMPRIMIDA','Centro Espacial Kennedy');
-    const canvas=el('canvas','ap-large-map');canvas.width=720;canvas.height=540;this.drawMap(canvas);
-    box.append(canvas,el('p','ap-note','N ↑ · Verde: completado · Ámbar: destino activo · Rojo: perímetro restringido. Las coordenadas del mapa corresponden al escenario. Las conexiones son una adaptación jugable de las distancias reales.'));
-    const cp=this.state.current;box.append(el('p','',`${apolloText(cp.title)} · ${Math.round(this.distance())} ${apolloText('m de recorrido simulado')}`));
-    box.append(this.button('Volver a operaciones',()=>this.closeModal(),'ap-button ap-primary'));
+    box.classList.add('ap-map-dialog');
+    box.append(this.button('Volver a operaciones',()=>this.closeModal(),'ap-button ap-primary'),this.buildOperationsMap(false));
   }
-  private drawMap(canvas:HTMLCanvasElement) {
-    const c=canvas.getContext('2d');if(!c)return;
-    const w=canvas.width,h=canvas.height, sx=w/400,sz=h/470;
-    const p=(x:number,z:number)=>[(x+200)*sx,(z+40)*sz] as const;
-    c.fillStyle='#10262d';c.fillRect(0,0,w,h);
-    c.strokeStyle='#34535a';c.lineWidth=1;
-    for(let x=0;x<w;x+=w/10){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}
-    for(let y=0;y<h;y+=h/10){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();}
-    c.strokeStyle='#08171d';c.lineCap='square';c.lineWidth=Math.max(11,w*.028);
-    // Same soil, service roads and building footprints as ApolloWorld.buildGround().
-    const road=(x1:number,z1:number,x2:number,z2:number)=>{const [a,b]=p(x1,z1),[d,e]=p(x2,z2);c.beginPath();c.moveTo(a,b);c.lineTo(d,e);c.stroke();c.strokeStyle='#c7b779';c.lineWidth=Math.max(6,w*.014);c.stroke();c.strokeStyle='#08171d';c.lineWidth=Math.max(11,w*.028);};
-    for(const segment of SITE_ROADS)road(segment.from.x,segment.from.z,segment.to.x,segment.to.z);
-    c.fillStyle='#37534b';
-    for(const zone of SITE_ZONES){const area=zoneBounds(zone.members),[x,z]=p(area.x-area.width/2,area.z-area.depth/2);c.fillRect(x,z,area.width*sx,area.depth*sz);}
-    c.strokeStyle='#7d9482';c.lineWidth=Math.max(1,w*.003);c.lineCap='round';
-    for(const points of SITE_WALKWAYS){c.beginPath();points.forEach((point,i)=>{const[x,z]=p(point.x,point.z);if(i)c.lineTo(x,z);else c.moveTo(x,z)});c.stroke();}
-    c.fillStyle='#28474b';c.strokeStyle='#78a39a';c.lineWidth=2;
-    for(const {x,z,width:bw,depth:bd} of SITE_BUILDINGS){const [a,b]=p(x-bw/2,z-bd/2);c.fillRect(a,b,bw*sx,bd*sz);c.strokeRect(a,b,bw*sx,bd*sz);}
-    const [rx,rz]=p(0,0);c.fillStyle='#9b4f4b33';c.beginPath();c.ellipse(rx,rz,90*sx,90*sz,0,0,Math.PI*2);c.fill();c.strokeStyle='#d47c6e';c.setLineDash([7,5]);c.lineWidth=2;c.stroke();c.setLineDash([]);
-    c.font=`600 ${Math.max(10,w/40)}px sans-serif`;c.fillStyle='#f0e7c9';c.fillText(apolloText('N ↑'),12,24);c.fillText(apolloText('39A · RESTRINGIDO'),rx+12,rz+5);
-    c.fillStyle='#b8d1c6';c.fillText(apolloText('↖ VAB · 1 km'),12,Math.max(42,h*.18));
-    c.font=`600 ${Math.max(10,w/52)}px sans-serif`;
-    CHECKPOINTS.slice(0,6).forEach((cp,i)=>{const [x,z]=p(cp.target.x,cp.target.z);const completed=this.state.completed.includes(cp.id),active=!this.state.requiredStand && i===this.state.checkpoint;c.fillStyle=completed?'#76d49b':active?'#ffd166':'#86a8ae';c.strokeStyle='#07151b';c.lineWidth=3;c.beginPath();c.arc(x,z,active?8:5,0,Math.PI*2);c.fill();c.stroke();if(active){c.strokeStyle='#ffd166';c.lineWidth=2;c.beginPath();c.arc(x,z,13,0,Math.PI*2);c.stroke();}if(w>300){c.fillStyle=completed?'#a9e7be':active?'#ffe29a':'#d5e4df';c.fillText(`C${i+1}`,x+13,z+5);}});
-    BONUS_CHECKPOINTS.forEach((bonus,index)=>{const [x,z]=p(bonus.target.x,bonus.target.z);const completed=this.state.bonusCompleted.includes(bonus.id),active=this.state.requiredStand?.id===bonus.id;c.fillStyle=completed?'#76d49b':'#e99a61';c.strokeStyle='#07151b';c.lineWidth=3;c.beginPath();c.rect(x-6,z-6,12,12);c.fill();c.stroke();if(active){c.strokeStyle='#ffd166';c.lineWidth=2;c.strokeRect(x-10,z-10,20,20);}if(w>300){c.fillStyle=completed?'#a9e7be':'#ffc09a';c.fillText(`S${index+1}`,x+11,z+4);}});
-    const target=this.state.requiredStand?.target ?? this.state.current.target;
-    const remote=this.world.player.z>5000;
-    const transfer=CHECKPOINTS[5].target;
-    const [tx,tz]=p(remote?transfer.x:target.x,remote?transfer.z:target.z),[px,pz]=p(remote?transfer.x:this.world.player.x,remote?transfer.z:this.world.player.z);
-    c.strokeStyle='#ffd166';c.lineWidth=3;c.setLineDash([8,6]);c.beginPath();c.moveTo(px,pz);c.lineTo(tx,tz);c.stroke();c.setLineDash([]);
-    c.save();c.translate(px,pz);c.rotate(-this.world.yaw);c.fillStyle='#07151b';c.beginPath();c.moveTo(0,-11);c.lineTo(8,8);c.lineTo(0,4);c.lineTo(-8,8);c.closePath();c.fill();c.fillStyle='#ffffff';c.beginPath();c.moveTo(0,-8);c.lineTo(5,6);c.lineTo(0,3);c.lineTo(-5,6);c.closePath();c.fill();c.restore();
-    if(w>300){const legendY=h-16;c.font='600 11px sans-serif';c.fillStyle='#d5e4df';c.fillText('● HISTORIA',w-330,legendY);c.fillStyle='#ffc09a';c.fillText('■ SUBMISIÓN',w-230,legendY);c.fillStyle='#ffffff';c.fillText('◆ TÚ',w-112,legendY);}
+  private buildOperationsMap(paused:boolean):HTMLElement {
+    const root=el('div','ap-operations-map');
+    const figure=el('figure','ap-map-figure'),canvas=el('canvas',paused?'ap-pause-map':'ap-large-map');
+    canvas.width=780;canvas.height=860;canvas.setAttribute('role','img');canvas.setAttribute('aria-label',apolloText('Plano del complejo')+' · '+apolloText('Tu posición')+' · '+apolloText('Estado de los puestos'));
+    this.drawMap(canvas);requestAnimationFrame(()=>{if(canvas.isConnected)this.drawMap(canvas);});figure.append(canvas,el('figcaption','ap-map-caption','Las distancias pertenecen al escenario. Sigue las vías y los senderos del plano.'));
+    const aside=el('aside','ap-map-context');aside.setAttribute('aria-label',apolloText('Destino activo'));
+    const target=apolloDestination(this.state),distance=Math.round(Math.hypot(this.world.player.x-target.target.x,this.world.player.z-target.target.z));
+    const remote=apolloRemotePosition(this.world.player);
+    aside.append(el('small','ap-map-eyebrow',this.state.done?'Misión completada':'Destino activo'));
+    const activeStation=apolloMapStations(this.state).find(station=>station.id===target.id);
+    if(activeStation&&!this.state.done)aside.append(el('small','ap-map-target-code',apolloText('Puesto')+' '+activeStation.code+' · '+apolloText(activeStation.kind==='story'?'Historia':'Apoyo terrestre')));
+    aside.append(el('h3','ap-map-destination',this.state.done?'MISIÓN 01 COMPLETADA':target.title));
+    aside.append(el('p','ap-map-description',this.state.done?'El registro de las quince operaciones está completo.':target.objective));
+    if(!this.state.done){
+      const measurement=el('div','ap-map-distance');measurement.append(el('strong','',`${distance} m`),el('span','','Distancia directa'));aside.append(measurement);
+      const requirements=el('section','ap-map-requirements');requirements.append(el('h4','','Requisitos del destino'));
+      const list=el('ul');
+      for(const requirement of apolloMapRequirements(this.state)){const item=el('li',requirement.complete?'is-complete':'',`${requirement.complete?'✓':'○'} ${apolloText(requirement.title)}`);item.dataset.requirement=requirement.id;list.append(item);}
+      requirements.append(list.children.length?list:el('p','','Sin requisitos pendientes'));aside.append(requirements);
+    }
+    if(remote)aside.append(el('p','ap-map-remote','Observación remota · 5,6 km'),el('small','ap-map-remote-note','Fuera del plano del complejo'));
+    const legend=el('div','ap-map-legend');legend.setAttribute('aria-label',apolloText('Estado de los puestos'));
+    for(const [symbol,copy,status]of [['▲','Tu posición','player'],['◎','Destino activo','active'],['✓','Completado','completed'],['○','Disponible','available'],['▣','Pendiente de autorización','locked']]){
+      const item=el('span','ap-map-legend-item');item.dataset.state=status;const icon=el('b','',symbol);icon.setAttribute('aria-hidden','true');item.append(icon,el('span','',copy));legend.append(item);
+    }
+    const directory=el('details','ap-map-directory');directory.append(el('summary','','Puestos del complejo'));
+    for(const [kind,title,symbol]of [['story','Historia','●'],['support','Apoyo terrestre','■']]as const){
+      directory.append(el('h4','',symbol+' '+apolloText(title)));const list=el('ul');
+      for(const station of apolloMapStations(this.state).filter(station=>station.kind===kind)){
+        const row=el('li','ap-map-station');row.dataset.station=station.id;row.dataset.state=station.status;
+        const code=el('span','ap-map-code',station.code);code.setAttribute('aria-label',apolloText('Puesto')+' '+station.code);
+        const text=el('span','ap-map-station-copy');text.append(el('strong','',station.title),el('small','',MAP_STATUS_COPY[station.status]));row.append(code,text);list.append(row);
+      }directory.append(list);
+    }
+    root.append(figure,aside,legend,directory);return root;
   }
+  private drawMap(canvas:HTMLCanvasElement) {return drawApolloMap(canvas,this.state,this.world.player,this.world.yaw);}
   private openSketchfab() {
     this.modalKind='sketchfab';
     const box=this.openModal('VISOR OFICIAL EXTERNO · NO INTEGRADO EN EL ESCENARIO','Saturn V de HUuser2024');
@@ -757,7 +761,7 @@ export class ApolloScreen implements Screen {
     const bonus=this.world.nearbyBonus();
     const bonusNear=!!bonus && !this.state.bonusCompleted.includes(bonus.id);
     const near=this.distance()<=15;
-    const destination=this.state.requiredStand ?? this.state.current;
+    const destination=apolloDestination(this.state);
     const remaining=Math.hypot(this.world.player.x-destination.target.x,this.world.player.z-destination.target.z);
     this.prompt.hidden=!this.started || this.paused || !!this.movie || (this.state.done && !bonusNear);
     this.prompt.textContent=bonusNear?'E · '+(this.state.canStartBonus(bonus!.id)?bonus!.title:'Stand pendiente de autorización'):near?'E · '+(this.state.checkpoint===4?'Observar a la tripulación':this.state.checkpoint===6?'Presenciar el lanzamiento':'Examinar estación'):`${Math.round(remaining)} m · ${destination.title}`;

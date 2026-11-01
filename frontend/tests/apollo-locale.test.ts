@@ -4,6 +4,7 @@ import { APOLLO_TRANSLATIONS, APOLLO_TRANSLATION_ROWS, apolloText } from '@/apol
 import { CHECKPOINTS, BONUS_CHECKPOINTS, DIALOGUES } from '@/apollo/ApolloState';
 import { FLIGHT_CARDS, CREW_CARDS } from '@/apollo/ApolloStandRules';
 import {STAND_HANDOFFS} from '@/apollo/ApolloStandHandoffs';
+import {MAP_TRANSLATIONS} from '@/apollo/ApolloMapLocale';
 
 test('Apollo locale catalog has complete ES/EN/FR rows', () => {
   assert.ok(APOLLO_TRANSLATIONS.size > 150, 'Apollo copy catalog should cover the full mission surface');
@@ -59,5 +60,12 @@ test('Apollo locale catalog covers dynamic mission surfaces', () => {
     'Centro Espacial Kennedy en 1969. Escenario 3D de Apollo 11.',
   ]) {
     assert.ok(APOLLO_TRANSLATIONS.has(source), `missing dynamic Apollo copy: ${source}`);
+  }
+});
+
+
+test('map copy is registered in the shared catalog and translated in both languages',()=>{
+  for(const[source,en,fr]of MAP_TRANSLATIONS){
+    assert.ok(APOLLO_TRANSLATIONS.has(source));assert.equal(apolloText(source,'en'),en);assert.equal(apolloText(source,'fr'),fr);
   }
 });

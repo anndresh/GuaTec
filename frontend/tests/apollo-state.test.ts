@@ -169,3 +169,10 @@ test('checkpoint and dialogue data are internally consistent', () => {
     assert.ok(!['Neil Armstrong', 'Buzz Aldrin', 'Michael Collins'].includes(dialogue.character));
   }
 });
+
+
+test('canAct queries the same guards as act without changing the mission',()=>{
+  const state=new ApolloState(),before=state.toJSON();
+  assert.equal(state.canAct('map'),true);assert.equal(state.canAct('landmark'),true);assert.equal(state.canAct('arrive'),false);assert.equal(state.canAct('unknown'),false);assert.deepEqual(state.toJSON(),before);
+  assert.equal(state.act('map'),true);assert.equal(state.canAct('map'),false);assert.equal(state.completeBonus('power-bus'),true);assert.equal(state.canAct('arrive'),true);
+});

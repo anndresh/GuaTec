@@ -294,13 +294,18 @@ export class ApolloState {
       && !stand.requires?.some(required => !this.bonusCompleted.includes(required));
   }
 
-  act(action: string): boolean {
+  /** Read-only permission query shared by interaction affordances and act(). */
+  canAct(action: string): boolean {
     const definition = this.current.actions.find(entry => entry.id === action);
-    if (this.done || !definition
-      || this.checks.includes(action)
-      || definition.requires?.some(id => !this.checks.includes(id))
-      || definition.requiresBonus?.some(id => !this.bonusCompleted.includes(id))
-      || !this.current.requirements.every(id => this.completed.includes(id))) return false;
+    return !this.done && !!definition
+      && !this.checks.includes(action)
+      && !definition.requires?.some(id => !this.checks.includes(id))
+      && !definition.requiresBonus?.some(id => !this.bonusCompleted.includes(id))
+      && this.current.requirements.every(id => this.completed.includes(id));
+  }
+
+  act(action: string): boolean {
+    if (!this.canAct(action)) return false;
     this.checks.push(action);
     if (this.current.actions.every(entry => this.checks.includes(entry.id))) {
       this.completed.push(this.current.id);
