@@ -560,7 +560,6 @@ export class ApolloWorld {
     // Red/white weather mast and dish belong to support operations, not modern pad hardware.
     for (let i = 0; i < 7; i++) this.box(0.6, 2, 0.6, i % 2 ? wall : this.material('red', 0x9f3d32), 91, 1 + i * 2, 270);
     this.beam(new THREE.Vector3(91, 14, 270), new THREE.Vector3(91, 1, 277), 0.05, roof);
-    this.fence(-150, -80, 325);
   }
   private buildStations(): void {
     const labels:readonly (readonly [string,string,StationKind])[]=[
