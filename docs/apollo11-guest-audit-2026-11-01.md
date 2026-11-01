@@ -77,3 +77,17 @@ fotograma. La prueba espera ahora ese estado y utiliza el atajo de teclado
 para confirmar que una exposición no estabilizada no avanza la misión. La
 captura válida posterior y todo el recorrido pasan. No requirió cambiar la
 regla del instrumento.
+
+## Encabezado del informe en escritorio
+
+La revisión de las capturas públicas detectó que el contenedor de escritorio
+centraba verticalmente un informe más alto que la ventana, dejando el título
+por encima del área desplazable. El informe se alinea ahora al inicio cuando
+necesita desplazamiento y conserva márgenes automáticos cuando cabe.
+
+La regresión utiliza el contenedor real de altura fija: el fixture anterior
+lo sustituía por un contenedor relativo y ocultaba el defecto. Falló antes
+por título fuera de pantalla; tras la corrección pasan ES/EN/FR, acceso desde
+misión completada, cero escrituras, título y botones finales alcanzables en
+escritorio, vertical y horizontal, e informes legados. La corrección afecta
+solo al posicionamiento del panel de informe.

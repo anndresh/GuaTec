@@ -13,12 +13,13 @@ const state={version:'apollo11-v1',checkpoint:7,done:true,elapsed:240,checks:[],
 await page.route('**/api/progress/**',r=>{if(r.request().method()!=='GET')writeRequests++;return r.fulfill({json:{state:mode==='apollo'?{apollo11:state}:{},report}})});
 await page.route('**/api/samples',r=>{sampleRequests++;return r.fulfill({json:{samples:[]}})});
 await page.route('**/apollo-report-acceptance',r=>r.fulfill({contentType:'text/html; charset=utf-8',body:`
- <meta charset="utf-8"><link rel="stylesheet" href="/src/style.css"><style>body{background:#10262d}#ui-root{position:relative;min-height:100vh}#app{min-height:100vh}</style><div id="app"><div id="ui-root"></div></div>
+ <meta charset="utf-8"><link rel="stylesheet" href="/src/style.css"><style>body{background:#10262d}</style><div id="app"><div id="ui-root"></div></div>
  <script type="module">import {ReportScreen} from '/src/screens/ReportScreen.ts';import {ApolloScreen} from '/src/apollo/ApolloScreen.ts';import {setLanguage,getLanguage} from '/src/core/language.ts';let active;const app={currentUser:{id:'report-entry-fixture'},showMissionSelect(){window.back=true},showMission1(){window.replay=true},async showReport(slug){window.reportOpened=slug;await window.start(getLanguage())}};window.start=async language=>{setLanguage(language);active?.unmount();const host=document.querySelector('#ui-root');host.replaceChildren();active=new ReportScreen(app,'mission-1-arrival');await active.mount(host)};window.openCompletedMission=async language=>{setLanguage(language);active?.unmount();const host=document.querySelector('#ui-root');host.replaceChildren();window.reportOpened=null;active=new ApolloScreen(app);await active.mount(host)};window.ready=true;</script>`}));
 try{
  await page.goto(new URL('/apollo-report-acceptance',base).href);await page.waitForFunction(()=>window.ready);
  for(const language of['es','en','fr']){
    sampleRequests=0;await page.evaluate(language=>window.start(language),language);
+   await page.locator('.screen-title').waitFor();assert.ok((await page.locator('.screen-title').boundingBox()).y>=0,'The report title stays reachable at the top of the real fixed-height app shell.');
    assert.equal(await page.locator('.ap-report-operation').count(),15);assert.equal(await page.locator('.ap-report-operation[data-completed=true]').count(),15);
    assert.equal(await page.locator('.report-resource-list').count(),0);assert.equal(sampleRequests,0);assert.ok(!(await page.locator('body').innerText()).includes('1926'));
    assert.ok((await page.locator('.ap-report-completion').innerText()).includes('15'));
@@ -30,7 +31,9 @@ try{
   await page.locator('.ap-report').waitFor();assert.equal(await page.evaluate(()=>window.reportOpened),'mission-1-arrival');assert.equal(await page.locator('.ap-report-operation[data-completed=true]').count(),15);
  }assert.equal(writeRequests,0,'Viewing a completed mission report must not rewrite progress or complete the mission again.');checks.push('Completed missions expose their report in ES/EN/FR and open all fifteen records without changing progress.');
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.start('fr'));assert.equal(await page.locator('.ap-report').evaluate(el=>el.scrollWidth>el.clientWidth),false);await page.screenshot({path:resolve(out,'fr-mobile.png')});
+ await page.locator('.report-replay-button').scrollIntoViewIfNeeded();assert.ok((await page.locator('.report-replay-button').boundingBox()).y<844,'The report footer remains reachable by scrolling.');
  await page.locator('.ap-report-operation').last().scrollIntoViewIfNeeded();await page.screenshot({path:resolve(out,'fr-mobile-bottom.png')});
+ await page.setViewportSize({width:844,height:390});await page.evaluate(()=>window.start('en'));assert.ok((await page.locator('.screen-title').boundingBox()).y>=0);await page.locator('.report-replay-button').scrollIntoViewIfNeeded();assert.ok((await page.locator('.report-replay-button').boundingBox()).y<390);await page.screenshot({path:resolve(out,'en-landscape-footer.png')});await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.start('fr'));checks.push('Real app shell keeps long-report headings and footers reachable on desktop, portrait and landscape.');
  await page.getByRole('button',{name:'Retour aux missions',exact:true}).click();assert.equal(await page.evaluate(()=>window.back),true);
  mode='legacy';sampleRequests=0;await page.evaluate(()=>window.start('es'));assert.equal(await page.locator('.ap-report').count(),0);assert.ok((await page.locator('body').innerText()).includes('1926'));assert.equal(sampleRequests,1);checks.push('Legacy reports keep their original engineering layout.');
  assert.deepEqual(errors,[]);await writeFile(resolve(out,'report.json'),JSON.stringify({checks,errors},null,2));console.log('PASS: Apollo reports in ES/EN/FR, mobile scrolling and legacy report preservation.');

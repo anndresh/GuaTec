@@ -798,6 +798,8 @@ body {
 /* Report */
 .report-screen {
   max-width: 640px;
+  align-self: flex-start;
+  margin-block: auto;
 }
 .outcome-badge {
   display: inline-block;
