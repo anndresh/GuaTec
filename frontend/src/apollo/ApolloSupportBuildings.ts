@@ -76,6 +76,12 @@ export function buildSupportBuilding(
     const facadePipe = (u: number, y: number, offset: number, h: number): void =>
       pipe(.055, h, metal, cosine * u + sine * (outside + offset), y,
         -sine * u + cosine * (outside + offset));
+    const facadeTube = (points: readonly (readonly [number, number, number])[], radius: number): void => {
+      const curve = new THREE.CatmullRomCurve3(points.map(([u, y, offset]) =>
+        new THREE.Vector3(cosine * u + sine * (outside + offset), y,
+          -sine * u + cosine * (outside + offset))));
+      add(new THREE.TubeGeometry(curve, 6, radius, 6, false), metal, 0, 0, 0);
+    };
     const window = (u: number, y: number, w: number, h: number, split = true): void => {
       facadeBox(w + .2, h + .22, .08, recess, u, y, .042);
       facadeBox(w, h, .035, glass, u, y, .095);
@@ -97,10 +103,24 @@ export function buildSupportBuilding(
     // Wall piers, head band and shallow panels give lateral elevations the same
     // level of authorship as the entrance that faces away from some work yards.
     facadeBox(along - .7, .18, .16, trim, 0, height - .68, .08);
+    // Recessed horizontal bed joints establish the scale of the concrete-block
+    // walls. They stay behind windows, piers and door hardware.
+    for (let y = .9; y < height - .8; y += .6)
+      facadeBox(along - 1.1, .018, .016, metal, 0, y, .009);
     for (const side of [-1, 1]) {
       facadeBox(.26, height - .7, .16, trim, side * (along / 2 - .48), height / 2 + .13, .08);
-      facadePipe(side * (along / 2 - .84), height / 2 + .08, .17, height - .35);
-      facadeBox(.19, .21, .32, metal, side * (along / 2 - .84), .29, .24);
+      const drainU = side * (along / 2 - .84);
+      facadePipe(drainU, height / 2 + .08, .17, height - .35);
+      // Scuppers connect the roof to each downpipe, with spaced saddle clamps
+      // and a curved outlet ending over the existing drainage apron.
+      facadeBox(.32, .24, .3, metal, drainU, height + .28, .13);
+      facadeBox(.22, .1, .025, recess, drainU, height + .29, .292);
+      facadeTube([[drainU, height + .3, .15], [drainU, height + .1, .23], [drainU, height - .15, .17]], .055);
+      facadeTube([[drainU, .3, .17], [drainU, .18, .23], [drainU, .13, .4]], .055);
+      for (let y = .65; y < height - .3; y += 1.35) {
+        facadeBox(.19, .09, .22, metal, drainU, y, .12);
+        facadeBox(.085, .12, .025, recess, drainU, y, .243);
+      }
     }
     const hasEntry = face === 0;
     const hasGarage = face === 2 && (variant === 1 || variant === 2);
@@ -129,6 +149,12 @@ export function buildSupportBuilding(
       facadeBox(2.35, .12, .17, trim, 0, 3.39, .12);
       facadeBox(.72, .72, .04, glass, -.3, 2.38, .145);
       facadeBox(.1, .42, .08, metal, .66, 1.8, .18);
+      facadeBox(.025, 2.74, .018, recess, 0, 1.8, .134);
+      for (const y of [.72, 1.84, 3.0]) {
+        facadeBox(.095, .19, .045, metal, -1.01, y, .2);
+        facadePipe(-1.01, y, .23, .2);
+      }
+      facadeBox(1.85, .19, .025, metal, 0, .53, .14);
       // This short rain hood remains wholly within the .7 m collider allowance.
       facadeBox(3.1, .14, .6, metal, 0, 3.55, .3);
       for (const u of [-1.15, 1.15]) facadeBox(.08, .36, .3, trim, u, 3.34, .18);
@@ -147,6 +173,15 @@ export function buildSupportBuilding(
       facadeBox(w + .35, .2, .26, trim, 0, 4.18, .15);
       for (let row = 0; row < 13; row++) facadeBox(w - .12, .035, .045, recess, 0, .64 + row * .255, .151);
       facadeBox(.7, .08, .06, trim, 0, .95, .18);
+      for (const side of [-1, 1]) {
+        // Rubber seals, lifting handles and lock plates belong to the closed
+        // roller shutter; no new doorway is implied in the collision shell.
+        facadeBox(.045, 3.48, .035, recess, side * (w / 2 - .05), 2.25, .153);
+        facadeBox(.38, .15, .035, recess, side * w * .32, 1.14, .162);
+        facadeBox(.28, .045, .065, trim, side * w * .32, 1.14, .2);
+      }
+      facadeBox(.3, .35, .12, recess, w / 2 + .44, 1.48, .16);
+      facadeBox(.14, .045, .025, trim, w / 2 + .44, 1.54, .236);
     }
     if (face % 2) {
       louver(-along * .29, 1.22, variant === 1 ? 2.1 : 1.6);
@@ -155,6 +190,20 @@ export function buildSupportBuilding(
       facadeBox(along * .48, .065, .07, metal, 0, .94, .11);
       facadeBox(.065, .65, .07, metal, along * .23, 1.23, .11);
       facadeBox(.38, .46, .16, recess, along * .23, 1.72, .13);
+    }
+    if (face === 3) {
+      // A fixed service ladder provides a recognisable roof-access silhouette.
+      // Its stand-off and top hooks remain inside the .7 m collider margin.
+      const u = along / 2 - 1.65;
+      for (const side of [-1, 1]) {
+        facadePipe(u + side * .34, height / 2 + .67, .33, height + .14);
+        facadeTube([[u + side * .34, height + .7, .33], [u + side * .34, height + .95, .23],
+          [u + side * .34, height + .94, -.15], [u + side * .34, height + .58, -.28]], .04);
+        for (let y = .9; y < height; y += 1.8)
+          facadeBox(.1, .12, .36, metal, u + side * .34, y, .16);
+      }
+      for (let y = .67; y < height + .4; y += .3)
+        facadeBox(.69, .045, .065, metal, u, y, .33);
     }
   }
 
@@ -166,6 +215,30 @@ export function buildSupportBuilding(
       box(w - .2, .055, .07, recess, x, height + .52 + row * (h - .18) / 5, z + d / 2 + .025);
       box(.07, .055, d - .2, recess, x + w / 2 + .025, height + .52 + row * (h - .18) / 5, z);
     }
+    // Capped fan wells and guard bars are geometry in the existing metal/recess
+    // batches. No extra transparent layers, texture maps or dynamic lights.
+    const fanRadius = Math.min(w, d) * .29;
+    pipe(fanRadius + .07, .1, recess, x, height + .51 + h, z);
+    pipe(fanRadius, .035, metal, x, height + .575 + h, z);
+    pipe(fanRadius * .82, .025, recess, x, height + .604 + h, z);
+    pipe(.09, .07, metal, x, height + .63 + h, z);
+    for (let bar = -2; bar <= 2; bar++) {
+      const offset = bar * fanRadius * .3;
+      const span = 2 * Math.sqrt(fanRadius ** 2 - offset ** 2);
+      box(span, .025, .025, trim, x, height + .65 + h, z + offset);
+    }
+  };
+
+  const rooflight = (x: number, z: number): void => {
+    const y = height + .43, w = 3.4, d = 1.35;
+    box(w + .18, .14, d + .18, recess, x, height + .25, z);
+    add(new THREE.BoxGeometry(w, .045, d), glass, x, y, z, 0, -.12);
+    for (const side of [-1, 1]) {
+      add(new THREE.BoxGeometry(.085, .075, d + .14), metal, x + side * w / 2, y + .02, z, 0, -.12);
+      box(w, .075, .075, metal, x, y + .02 + side * d * .06, z + side * d / 2);
+    }
+    for (const offset of [-w / 6, w / 6])
+      add(new THREE.BoxGeometry(.055, .065, d), trim, x + offset, y + .025, z, 0, -.12);
   };
   if (variant === 0) {
     // Low office block: broad parapet, two separated service housings and ducts.
@@ -174,6 +247,8 @@ export function buildSupportBuilding(
     box(7, .4, .65, metal, -1.3, height + .52, -depth * .12);
     pipe(.18, 1.3, roof, width * .25, height + .83, -depth * .27);
     box(.65, .12, .65, trim, width * .25, height + 1.52, -depth * .27);
+    rooflight(-width * .2, depth * .27);
+    rooflight(width * .13, -depth * .29);
   } else if (variant === 1) {
     // Utility block: an offset raised equipment gallery creates a stepped roof.
     box(width * .49, 1.25, depth * .48, wall, -width * .13, height + .84, -depth * .1);
@@ -210,6 +285,7 @@ export function buildSupportBuilding(
       pipe(.55, .1, trim, side * width * .12, height + 1.75, depth * .24);
     }
     box(width * .42, .18, 2.2, trim, 0, height + .98, -depth * .13);
+    rooflight(0, depth * .25);
   }
 
   let triangles = 0;
