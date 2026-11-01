@@ -32,3 +32,16 @@ la corrección pasan 107 pruebas, typecheck, compilación aislada de producción
 ocho comprobaciones de idioma: carga, cinemática, HUD/accesibilidad, borrador de
 fusible, pausa/foco, visor, brújula/distancia y recuperación ante fallo WebGL.
 La revisión independiente no encontró defectos adicionales en la corrección.
+
+## Pulsaciones de salto
+
+Una pulsación completa de Espacio entre dos fotogramas no iniciaba el salto:
+el bucle consultaba una tecla que `keyup` ya había retirado. Se inicia ahora
+con `keydown` y se ignora la repetición del sistema. Teclado, botón táctil y
+mando comparten la activación del clip desde `jump()`.
+
+La regresión con eventos de teclado reales falló antes de corregirlo. Ahora
+pasan la pulsación entre fotogramas, tecla sostenida/repetida al aterrizar,
+caminar/correr, sprint táctil, pausa aérea, colisiones, pérdida de foco y
+trayectorias a 30/60/120 pasos por segundo. Las 107 pruebas y el build aislado
+siguen pasando.

@@ -19,6 +19,10 @@ await page.route('**/apollo-movement-acceptance',route=>route.fulfill({contentTy
  </script>`}));
 try{
  await page.goto(new URL('/apollo-movement-acceptance',base).href);await page.waitForFunction(()=>window.ready,undefined,{timeout:60000});
+ await page.evaluate(()=>{window.animate=false;world.onBlur()});
+ await page.keyboard.press('Space');assert.equal((await page.evaluate(()=>sample())).grounded,false,'A complete Space tap between animation frames must start a jump.');
+ await page.evaluate(()=>window.animate=true);await page.waitForTimeout(850);checks.push('A short key tap is preserved even when released before the next frame.');
+ await page.keyboard.down('Space');await page.waitForTimeout(950);await page.keyboard.down('Space');assert.equal((await page.evaluate(()=>sample())).grounded,true,'Holding Space does not bounce again on landing.');await page.keyboard.up('Space');checks.push('OS key-repeat cannot turn a held key into repeated jumps.');
  await page.waitForTimeout(100);const idle=await page.evaluate(()=>sample());assert.equal(idle.weights.idle,1);
  await page.keyboard.down('w');await page.waitForTimeout(350);const walk=await page.evaluate(()=>sample());await page.keyboard.up('w');assert.ok(walk.weights.walk>.98);assert.ok(walk.position[2]<idle.position[2]-1);
  await page.waitForTimeout(80);const runStart=await page.evaluate(()=>sample());await page.keyboard.down('Shift');await page.keyboard.down('w');await page.waitForTimeout(350);const run=await page.evaluate(()=>sample());await page.keyboard.up('w');await page.keyboard.up('Shift');assert.ok(run.weights.run>.98);assert.ok(runStart.position[2]-run.position[2]>(idle.position[2]-walk.position[2])*1.4);checks.push({idle,walk,run});

@@ -911,6 +911,8 @@ export class ApolloWorld {
     if (!this.suspended && !this.mode && this.grounded) {
       this.verticalVelocity = 6.4;
       this.grounded = false;
+      const jump = this.people[0]?.jump;
+      jump?.reset().setEffectiveWeight(1).play();
     }
   }
   interact(): void {
@@ -1050,11 +1052,6 @@ export class ApolloWorld {
     this.pollGamepad(dt);
     const moving = this.move(dt);
     this.updateActors(dt);
-    if (!this.suspended && !this.mode && this.keys.has(' ') && this.grounded) {
-      this.jump(); this.keys.delete(' ');
-      const jump = this.people[0]?.jump;
-      jump?.reset().setEffectiveWeight(1).play();
-    }
     if (!this.grounded && !this.suspended && !this.mode) {
       // Ballistic integration preserves jump height at different frame rates;
       // pausing must freeze velocity as well as the visible position.
@@ -1219,7 +1216,10 @@ export class ApolloWorld {
   private onKeyDown = (event: KeyboardEvent): void => {
     if ((event.target as HTMLElement)?.closest('input,textarea,select,button')) return;
     const key = event.key.toLowerCase();
-    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', ' '].includes(key)) { if (!this.suspended && !this.mode) this.keys.add(key); event.preventDefault(); }
+    // Capture a complete tap even when keyup arrives before the next frame.
+    // OS key-repeat must not enqueue another jump on landing.
+    if (key === ' ') { if (!event.repeat) this.jump(); event.preventDefault(); return; }
+    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) { if (!this.suspended && !this.mode) this.keys.add(key); event.preventDefault(); }
     if (key === 'e' && !event.repeat && !this.suspended && !this.mode) this.callbacks.onInteract();
     if (key === 'm' && !event.repeat && !this.mode) this.callbacks.onMap();
   };
