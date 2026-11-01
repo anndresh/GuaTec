@@ -45,3 +45,20 @@ pasan la pulsación entre fotogramas, tecla sostenida/repetida al aterrizar,
 caminar/correr, sprint táctil, pausa aérea, colisiones, pérdida de foco y
 trayectorias a 30/60/120 pasos por segundo. Las 107 pruebas y el build aislado
 siguen pasando.
+
+## Acceso al informe completado
+
+El informe se generaba en la API y tenía una pantalla implementada, pero Apollo
+solo ofrecía el epílogo al volver a una misión completada. La bienvenida de una
+misión completada incorpora ahora «Ver informe de misión», conectado a la
+pantalla existente y traducido en ES/EN/FR. Consultarlo no vuelve a completar
+la misión ni reescribe el progreso.
+
+La prueba de acceso falló antes por ausencia del botón. Tras corregirlo, el
+navegador abre los quince registros desde la bienvenida en los tres idiomas y
+verifica cero escrituras, además de diseño estrecho y preservación de informes
+legados. Pasan 107 pruebas, typecheck y compilación aislada. El arnés de historia
+se amplía con recuperación tras exposición óptica incorrecta, cambio real de
+idioma, compás ES/EN/FR, informes en los tres idiomas, vídeo y captura de errores
+de consola/red. Admite localhost o el dominio público conocido; no permite
+hosts arbitrarios ni inyecta progreso.

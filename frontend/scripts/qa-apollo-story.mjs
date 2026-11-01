@@ -7,11 +7,11 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH||'playwright');
 const base=new URL(process.env.APOLLO_STORY_URL||'http://127.0.0.1:4173');
-if(!['127.0.0.1','localhost','[::1]'].includes(base.hostname))throw Error('Use a local compiled preview connected to the local API.');
+if(!['127.0.0.1','localhost','[::1]','gua-tec.vercel.app'].includes(base.hostname))throw Error('Use a local compiled preview or the known production game.');
 const out=resolve(process.env.APOLLO_STORY_OUTPUT||'artifacts/apollo-story');await mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true,...(process.env.CHROME_BIN?{executablePath:process.env.CHROME_BIN}:{}),args:['--autoplay-policy=no-user-gesture-required']});
-const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],trace=[];
-page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+const page=await browser.newPage({viewport:{width:1440,height:900},recordVideo:{dir:resolve(out,'motion'),size:{width:960,height:600}}}),errors=[],trace=[],consoleErrors=[],networkErrors=[];
+page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text())});page.on('response',r=>{if(r.status()>=400)networkErrors.push({url:r.url(),status:r.status()})});
 await page.addInitScript(()=>{localStorage.setItem('mm.language','es');localStorage.setItem('guatec.apollo11.voice','off')});
 const snapshot=()=>page.evaluate(()=>window.q.state.toJSON());
 const checkpoint=async value=>{await page.waitForFunction(value=>q.state.checkpoint===value,value,{timeout:value===5?45000:20000});};
@@ -54,6 +54,10 @@ async function goTo(target){
   }
 }
 
+async function changeMissionLanguage(language){
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:/Idioma|Language|Langue/}).click();await page.getByRole('button',{name:language.toUpperCase(),exact:true}).click();await page.keyboard.press('Escape');
+ assert.equal(await page.locator('.ap-objective').getAttribute('aria-label'),{es:'Objetivo actual',en:'Current objective',fr:'Objectif actuel'}[language]);
+}
 async function openCurrent(){const target=await page.evaluate(()=>q.state.current.target);await goTo(target);await page.locator('.ap-interact').click();}
 async function stand(kind){
   const pending=await page.evaluate(()=>q.state.requiredStand);assert.equal(pending?.kind,kind,'Chronology chooses the expected operation.');
@@ -65,7 +69,11 @@ async function stand(kind){
   if(kind==='telemetry'){for(const [i,value]of[62,74,58].entries())await range(page.locator('.ap-stand input').nth(i),value);await page.getByRole('button',{name:'Fijar enlace'}).click();}
   if(kind==='cables'){await assign([2,0,3,1]);await page.getByRole('button',{name:'Probar continuidad'}).click();}
   if(kind==='crew-manifest'){for(let i=0;i<3;i++){await page.locator('.ap-imprinter-roller').focus();await page.keyboard.down('Space');await page.waitForTimeout(1000);await page.keyboard.up('Space');}}
-  if(kind==='weather'){await range(page.getByRole('slider',{name:'Rumbo de veleta'}),225);await range(page.getByRole('slider',{name:'Obturador de nubosidad'}),35);await page.getByRole('button',{name:'Sellar parte de observación'}).click();}
+  if(kind==='weather'){
+   for(const[language,bearing]of[['en','225° / SW'],['fr','225° / SO'],['es','225° / SO']]){
+    await page.keyboard.press('Escape');await changeMissionLanguage(language);await page.locator('.ap-interact').click();assert.equal(await page.locator('.ap-wind-reference').innerText(),bearing);
+   }
+   await range(page.getByRole('slider',{name:'Rumbo de veleta'}),225);await range(page.getByRole('slider',{name:'Obturador de nubosidad'}),35);await page.getByRole('button',{name:'Sellar parte de observación'}).click();}
   if(kind==='beacons'){const r=await page.locator('.ap-perimeter canvas').boundingBox();for(const[x,y]of[[.22,.3],[.73,.65],[.48,.24]]){await page.mouse.move(r.x+r.width*x,r.y+r.height*y,{steps:8});await page.waitForTimeout(1450)}}
   await page.waitForFunction(id=>q.state.bonusCompleted.includes(id),pending.id);await capture('stand-'+pending.id);
 }
@@ -81,8 +89,9 @@ try{
  const entry=await page.locator('script[type="module"][src]').first().getAttribute('src'),source=await(await page.request.get(new URL(entry,base).href)).text(),chunk=source.match(/ApolloScreen-[\w-]+\.js/)?.[0];assert.ok(chunk,'Use the compiled Vite preview.');
  await page.evaluate(async url=>{const m=await import(url),mount=m.ApolloScreen.prototype.mount;m.ApolloScreen.prototype.mount=function(...args){window.q=this;return mount.apply(this,args)}},new URL('/assets/'+chunk,base).href);
  await page.getByText('Misión 01: Apollo 11',{exact:true}).click();await page.getByRole('button',{name:'Comenzar operaciones',exact:true}).click();await page.getByRole('button',{name:'Omitir introducción'}).click();await capture('arrival');
+ for(const language of['en','fr','es'])await changeMissionLanguage(language);
  await stand('sequence');await page.keyboard.press('m');await page.getByRole('button',{name:'Volver a operaciones',exact:true}).click();
- await openCurrent();await optics([[52,72,79]]);await checkpoint(1);await capture('orientation');
+ await openCurrent();await page.locator('.ap-inst-action').click();assert.equal((await snapshot()).checkpoint,0,'An unstable exposure cannot advance the mission.');await optics([[52,72,79]]);await checkpoint(1);await capture('orientation');
  await stand('flight-plan');await openCurrent();await optics([[26,62,83],[52,72,79],[82,48,86]]);await checkpoint(2);await capture('complex');
  await stand('telemetry');await stand('cables');await openCurrent();
  for(const[i,id]of['AS-506','LC-39A','09:32 EDT'].entries()){await page.locator('[data-card="'+id+'"]').click();await page.locator('.ap-inst-record-slot[data-slot="'+i+'"]').click();}
@@ -95,10 +104,16 @@ try{
  await page.locator('.ap-interact').click();await page.waitForFunction(()=>q.movie==='launch');await page.waitForTimeout(14000);await capture('liftoff');
  await page.waitForFunction(()=>q.state.checkpoint===7,undefined,{timeout:80000});await capture('epilogue');
  await page.getByRole('button',{name:'Completar misión y regresar',exact:true}).click();await page.getByText('Completada',{exact:true}).waitFor();
+ await page.getByText('Misión 01: Apollo 11',{exact:true}).click();await page.getByRole('button',{name:'Ver informe de misión',exact:true}).click();
+ for(const[language,heading]of[['es','Registro de apoyo terrestre'],['en','Ground-support log'],['fr','Registre de soutien au sol'],['es','Registro de apoyo terrestre']]){
+   if(await page.evaluate(()=>document.documentElement.lang)!==language){await page.locator('.language-menu-trigger').click();await page.getByRole('option').filter({hasText:new RegExp('^'+language.toUpperCase()+' —')}).click();}
+   await page.getByRole('heading',{name:heading,exact:true}).waitFor();assert.equal(await page.locator('.ap-report-operation[data-completed=true]').count(),15);await page.screenshot({path:resolve(out,'completed-report-'+language+'.png')});
+ }
+ await page.getByRole('button',{name:'Volver a misiones',exact:true}).click();
  await page.getByText('Misión 01: Apollo 11',{exact:true}).click();await page.getByRole('button',{name:'Ver epílogo',exact:true}).waitFor();
  const recovered=await snapshot();assert.equal(recovered.done,true);assert.equal(recovered.completed.length,8);assert.equal(recovered.bonusCompleted.length,7);
  await page.getByRole('button',{name:'Ver epílogo',exact:true}).click();await page.keyboard.press('Escape');await page.keyboard.press('Escape');await page.getByRole('button',{name:/Reiniciar misión/}).click();await page.getByRole('button',{name:'Reiniciar Apollo 11',exact:true}).click();await page.getByRole('button',{name:'Comenzar operaciones',exact:true}).waitFor();
- const reset=await snapshot();assert.equal(reset.checkpoint,0);assert.deepEqual(reset.bonusCompleted,[]);assert.deepEqual(errors,[]);
- await writeFile(resolve(out,'report.json'),JSON.stringify({trace,recovered,reset,errors,realInputTravel:true,completedAt:new Date().toISOString()},null,2));
+ const reset=await snapshot();assert.equal(reset.checkpoint,0);assert.deepEqual(reset.bonusCompleted,[]);assert.deepEqual(errors,[]);assert.deepEqual(consoleErrors,[]);assert.deepEqual(networkErrors,[]);
+ await writeFile(resolve(out,'report.json'),JSON.stringify({trace,recovered,reset,errors,consoleErrors,networkErrors,realInputTravel:true,completedAt:new Date().toISOString()},null,2));
  console.log('PASS: all 15 operations, held-input travel, launch, saved completion, reentry and reset.');
-}catch(error){await page.screenshot({path:resolve(out,'failure.png')});await writeFile(resolve(out,'failure.json'),JSON.stringify({error:String(error),trace,errors,screen:await page.locator('body').innerText()},null,2));throw error}finally{await browser.close()}
+}catch(error){await page.screenshot({path:resolve(out,'failure.png')});await writeFile(resolve(out,'failure.json'),JSON.stringify({error:String(error),trace,errors,consoleErrors,networkErrors,screen:await page.locator('body').innerText()},null,2));throw error}finally{await page.context().close();await browser.close()}

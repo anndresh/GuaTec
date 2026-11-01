@@ -1,4 +1,5 @@
 export const REPORT_TRANSLATIONS:readonly (readonly [string,string,string])[]=[
+  ['Ver informe de misión','View mission report','Voir le rapport de mission'],
   ['Registro de apoyo terrestre','Ground-support log','Registre de soutien au sol'],
   ['Operaciones registradas: {count} de 15.','Operations recorded: {count} of 15.','Opérations enregistrées : {count} sur 15.'],
   ['Una jornada de preparación, observación y registro desde el área segura.','A day of preparation, observation and documentation from the safe area.','Une journée de préparation, d’observation et de documentation depuis la zone sûre.'],
