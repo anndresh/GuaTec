@@ -317,7 +317,6 @@ export class ApolloScreen implements Screen {
       else this.beginMovie('intro');
     },'ap-button ap-primary'); box.append(start);
     if(this.state.done)box.append(this.button('Ver informe de misión',()=>void this.app.showReport(SLUG)));
-    box.append(this.button('Inspeccionar Saturn V · Sketchfab',()=>this.openSketchfab()));
     box.append(this.button('Volver al selector',()=>void this.app.showMissionSelect()));
   }
   private renderObjective() {
