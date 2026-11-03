@@ -129,16 +129,35 @@ function roundedShape(points: readonly Point[], radius: number): THREE.Shape {
 }
 
 /** Extrudes a side profile across `depth`, centred on X, with the profile's +s pointing to -Z (the front). */
-function extrudeProfile(points: readonly Point[], radius: number, depth: number, bevel = 0.035, x = 0): THREE.BufferGeometry {
-  const geometry = new THREE.ExtrudeGeometry(roundedShape(points, radius), { depth: Math.max(depth - bevel * 2, 0.01), bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 6 });
-  geometry.translate(0, 0, -(depth - bevel * 2) / 2);
+function extrudeProfile(points: readonly Point[], radius: number, depth: number, bevel = 0.035, x = 0, steps = 1, shoulder = bevel): THREE.BufferGeometry {
+  const geometry = new THREE.ExtrudeGeometry(roundedShape(points, radius), { depth: Math.max(depth - shoulder * 2, 0.01), steps, bevelEnabled: true, bevelThickness: shoulder, bevelSize: bevel, bevelSegments: shoulder > bevel ? 4 : 2, curveSegments: 6 });
+  geometry.translate(0, 0, -(depth - shoulder * 2) / 2);
   geometry.rotateY(Math.PI / 2);
   geometry.translate(x, 0, 0);
   return geometry;
 }
 
-/** Pinches X towards the roof and the nose/tail; computed on the final vertex positions. */
-function sculpt(geometry: THREE.BufferGeometry, spec: CarSpec, tumble: number): THREE.BufferGeometry {
+type BodySection = 'body' | 'cabin' | 'roof';
+
+/** Transverse sheet-metal crown. Edge heights stay at the authored side profile;
+ * the centre rises smoothly, so the hood and roof catch a broad curved highlight. */
+function sectionLift(spec: CarSpec, x: number, y: number, s: number, section: BodySection): number {
+  const span = spec.height - spec.clearance;
+  const tumble = spec.tumblehome * (section === 'body' ? .35 : 1);
+  const end = Math.max(0, (Math.abs(s) - (spec.length / 2 - .7)) / .7);
+  const halfWidth = spec.width * (section === 'body' ? .5 : section === 'cabin' ? .45 : .46) *
+    (1 - tumble * Math.max(0, y - spec.clearance) / span) * (1 - .09 * end * end);
+  const cross = Math.max(0, 1 - (x / halfWidth) ** 2);
+  const bodyCrown = spec.height > 2 ? .045 : .065;
+  const crown = section === 'body' ? bodyCrown : (spec.height > 2 ? .095 : .075);
+  const heightMask = section === 'roof' ? 1 : section === 'cabin'
+    ? THREE.MathUtils.lerp(bodyCrown / crown, 1, THREE.MathUtils.smoothstep(y, spec.belt + .08, spec.height - spec.roofThickness))
+    : THREE.MathUtils.smoothstep(y, spec.belt - .16, spec.belt + .04);
+  return crown * cross * heightMask;
+}
+
+/** Pinches the ends and roof, then crowns the subdivided transverse surfaces. */
+function sculpt(geometry: THREE.BufferGeometry, spec: CarSpec, tumble: number, section?: BodySection): THREE.BufferGeometry {
   const position = geometry.getAttribute('position');
   const half = spec.length / 2, span = Math.max(spec.height - spec.clearance, 0.01);
   for (let i = 0; i < position.count; i++) {
@@ -146,7 +165,9 @@ function sculpt(geometry: THREE.BufferGeometry, spec: CarSpec, tumble: number): 
     const lean = 1 - tumble * Math.max(0, y - spec.clearance) / span;
     const end = Math.max(0, (Math.abs(z) - (half - 0.7)) / 0.7);
     const nose = 1 - 0.09 * end * end;
-    position.setX(i, position.getX(i) * lean * nose);
+    const x = position.getX(i) * lean * nose;
+    position.setX(i, x);
+    if (section) position.setY(i, y + sectionLift(spec, x, y, -z, section));
   }
   position.needsUpdate = true;
   // Smooth the rounded profile but keep the hard creases (bumper edges, window frames).
@@ -220,20 +241,20 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     ...lowerEdge, [half - 0.04, gc], [half, gc + 0.22], [half, belt - 0.16],
     [half - 0.08, belt - 0.04], [spec.windshieldBase, beltTop],
     [spec.rearGlassBase, beltTop + 0.02], [-half + 0.1, belt + 0.04], [-half, belt - 0.14], [-half, gc + 0.22],
-  ], spec.corner, width), spec, spec.tumblehome * 0.35), body);
+  ], spec.corner, width, .035, 0, 6, .095), spec, spec.tumblehome * 0.35, 'body'), body);
 
   // Greenhouse glass, then body-colour roof panel and pillars on top of it.
   const cabin: Point[] = [[spec.windshieldBase, beltTop - 0.02], [spec.roofFront, roofBase], [spec.roofRear, roofBase], [spec.rearGlassBase, beltTop - 0.02]];
-  add(sculpt(extrudeProfile(cabin, 0.05, width * 0.9, 0.012), spec, spec.tumblehome), glass);
-  add(sculpt(extrudeProfile([[spec.roofFront + 0.04, top], [spec.roofRear - 0.02, top], [spec.roofRear, roofBase], [spec.roofFront, roofBase]], 0.06, width * 0.92, 0.02), spec, spec.tumblehome), body);
+  add(sculpt(extrudeProfile(cabin, .05, width * .9, .012, 0, 6, .03), spec, spec.tumblehome, 'cabin'), glass);
+  add(sculpt(extrudeProfile([[spec.roofFront + .04, top], [spec.roofRear - .02, top], [spec.roofRear, roofBase], [spec.roofFront, roofBase]], .06, width * .92, .02, 0, 8, .09), spec, spec.tumblehome, 'roof'), body);
   const pillar = (a: Point, b: Point, c: Point, d: Point): void => {
-    for (const side of [-1, 1]) add(sculpt(extrudeProfile([a, b, c, d], 0.015, 0.07, 0.01, side * width * 0.455), spec, spec.tumblehome), body);
+    for (const side of [-1, 1]) add(sculpt(extrudeProfile([a, b, c, d], 0.015, 0.07, 0.01, side * width * 0.455), spec, spec.tumblehome, 'cabin'), body);
   };
   pillar([spec.windshieldBase + 0.07, beltTop], [spec.windshieldBase - 0.03, beltTop], [spec.roofFront - 0.03, roofBase], [spec.roofFront + 0.07, roofBase]);
   pillar([spec.rearGlassBase - 0.1, beltTop], [spec.rearGlassBase + 0.02, beltTop], [spec.roofRear + 0.02, roofBase], [spec.roofRear - 0.1, roofBase]);
   for (const s of spec.pillars) pillar([s + 0.05, beltTop], [s - 0.05, beltTop], [s - 0.05, roofBase], [s + 0.05, roofBase]);
   if (spec.blindFrom !== undefined) {
-    add(sculpt(extrudeProfile([[spec.blindFrom, beltTop - 0.02], [spec.blindFrom, top - 0.04], [spec.roofRear - 0.06, top - 0.04], [spec.rearGlassBase, beltTop - 0.02]], 0.04, width * 0.93, 0.02), spec, spec.tumblehome), body);
+    add(sculpt(extrudeProfile([[spec.blindFrom, beltTop - 0.02], [spec.blindFrom, top - 0.04], [spec.roofRear - 0.06, top - 0.04], [spec.rearGlassBase, beltTop - 0.02]], .04, width * .93, .02, 0, 8, .065), spec, spec.tumblehome, 'roof'), body);
   }
   // Continuous glazing surrounds follow the sculpted surface, including its
   // roof lean and end taper. These outlines give the greenhouse its own depth.
@@ -321,12 +342,22 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     box(width * 0.72, 0.06, 0.04, headlamp, 0, belt - 0.2, noseZ);
     box(width * 0.7, 0.07, 0.04, taillamp, 0, belt - 0.09, tailZ);
   }
+  if (options.periodStyle) {
+    // The lamps sit in one pressed front panel with a rolled brow. This connects
+    // the pair on each wing to the bonnet rather than leaving four loose pods.
+    panel(width * .93, .29, .15, body, 0, belt - .2, noseZ + .085, .065);
+    for (const side of [-1, 1]) {
+      panel(.46, .225, .09, chrome, side * width * .34, belt - .2, noseZ + .025, .055);
+      panel(.414, .18, .025, trim, side * width * .34, belt - .2, noseZ - .027, .045);
+    }
+    panel(width * .9, .085, .18, body, 0, belt - .052, noseZ + .09, .035);
+  }
   for (const side of [-1, 1]) {
     if(options.periodStyle){
       for(const dx of[-.105,.105]){
-        const housing=add(new THREE.CylinderGeometry(.105,.105,.16,16),chrome,side*width*.34+dx,belt-.2,noseZ+.01);housing.rotation.x=Math.PI/2;
-        const seal=add(new THREE.CylinderGeometry(.091,.091,.014,16),trim,side*width*.34+dx,belt-.2,noseZ-.074);seal.rotation.x=Math.PI/2;
-        const lens=add(new THREE.CylinderGeometry(.079,.079,.012,16),headlamp,side*width*.34+dx,belt-.2,noseZ-.084);lens.rotation.x=Math.PI/2;
+        const housing=add(new THREE.CylinderGeometry(.100,.100,.08,16),chrome,side*width*.34+dx,belt-.2,noseZ-.005);housing.rotation.x=Math.PI/2;
+        const seal=add(new THREE.CylinderGeometry(.088,.088,.014,16),trim,side*width*.34+dx,belt-.2,noseZ-.047);seal.rotation.x=Math.PI/2;
+        const lens=add(new THREE.CylinderGeometry(.078,.078,.012,16),headlamp,side*width*.34+dx,belt-.2,noseZ-.057);lens.rotation.x=Math.PI/2;
       }
       box(.018,.045,spec.length*.70,chrome,side*(width/2+.005),belt-.17,0);
     }else box(0.36, 0.1, 0.05, headlamp, side * width * 0.36, belt - 0.2, noseZ);
@@ -335,8 +366,6 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     panel(.32, .16, .11 + rearLampOffset, chrome, side * width * .38, belt - .1, tailZ - .02 + rearLampOffset / 2, .025);
     panel(.28, .12, .018, trim, side * width * .38, belt - .1, tailZ + .039 + rearLampOffset, .02);
     panel(.25, .085, .018, taillamp, side * width * .38, belt - .1, tailZ + .053 + rearLampOffset, .018);
-    box(0.1, 0.13, 0.2, body, side * (flank(belt + 0.12) + 0.05), belt + 0.12, Z(spec.windshieldBase - 0.2));
-    box(0.02, 0.1, 0.16, trim, side * (flank(belt + 0.12) + 0.105), belt + 0.12, Z(spec.windshieldBase - 0.2));
     // Period-correct side marker and a recessed door seam make the flank read as
     // assembled sheet metal instead of one continuous extrusion at gameplay distance.
     box(0.025, 0.055, 0.13, headlamp, side * (flank(belt - 0.03) + 0.018), belt - 0.03, Z(half - 0.32));
@@ -354,7 +383,8 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   // Windshield blades lie on the sloping glass and connect to their cowl pivots.
   const windscreenPoint = (x: number, y: number): THREE.Vector3 => {
     const t = (y - beltTop) / (roofBase - beltTop);
-    return new THREE.Vector3(x, y, Z(THREE.MathUtils.lerp(spec.windshieldBase, spec.roofFront, t)) - .025);
+    const s = THREE.MathUtils.lerp(spec.windshieldBase, spec.roofFront, t);
+    return new THREE.Vector3(x, y + sectionLift(spec, x, y, s, 'cabin'), Z(s) - .025);
   };
   for (const side of [-1,1]) {
     const pivot = windscreenPoint(side * width * .19, beltTop + .012);
@@ -364,15 +394,19 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     rod(bladeStart, bladeEnd, .016, trim);
     add(new THREE.SphereGeometry(.025, 8, 6), chrome, pivot.x, pivot.y, pivot.z);
     // Hood seams follow the sloping top instead of hovering over the nose.
-    const hood = (s: number): THREE.Vector3 => new THREE.Vector3(side * width * .30,
-      THREE.MathUtils.lerp(beltTop, belt - .04, (s - spec.windshieldBase) / (half - .08 - spec.windshieldBase)) + .009, Z(s));
-    rod(hood(spec.windshieldBase + .10), hood(half - .23), .008, trim);
+    const hood = (s: number): THREE.Vector3 => {
+      const x = side * width * .30;
+      const y = THREE.MathUtils.lerp(beltTop, belt - .04, (s - spec.windshieldBase) / (half - .08 - spec.windshieldBase)) + .035;
+      return new THREE.Vector3(x, y + sectionLift(spec, x, y, s, 'body') + .003, Z(s));
+    };
+    rod(hood(spec.windshieldBase + .10), hood(half - .23), .0035, trim);
   }
   // A recessed cowl intake is broad enough to read from the follow camera.
   for (let slot = -5; slot <= 5; slot++) {
     const s = spec.windshieldBase + .12;
-    const y = THREE.MathUtils.lerp(beltTop, belt - .04, .12 / (half - .08 - spec.windshieldBase)) + .008;
-    box(.052, .008, .095, trim, slot * width * .052, y, Z(s));
+    const y = THREE.MathUtils.lerp(beltTop, belt - .04, .12 / (half - .08 - spec.windshieldBase)) + .035;
+    const x = slot * width * .052;
+    box(.052, .008, .095, trim, x, y + sectionLift(spec, x, y, s, 'body') + .004, Z(s));
   }
   box(.014,.15,.18,chrome,-flank(belt-.25)-.01,belt-.25,half-.62);
 
@@ -380,7 +414,17 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   // assembled body rather than floating away from its painted silhouette.
   for (const side of [-1, 1]) {
     const mirrorS = spec.windshieldBase - .2, mirrorY = belt + .12;
-    box(.12,.025,.035,chrome,side*(flank(mirrorY)+.025),mirrorY-.04,Z(mirrorS));
+    const mountX = surfaceX(mirrorY, mirrorS);
+    const mirrorX = side * (mountX + .19), mirrorZ = Z(mirrorS) - .015;
+    box(.03, .10, .12, chrome, side * (mountX + .008), mirrorY - .055, mirrorZ);
+    rod(new THREE.Vector3(side * mountX, mirrorY - .06, mirrorZ),
+      new THREE.Vector3(side * (mountX + .14), mirrorY - .015, mirrorZ), .018, chrome);
+    rod(new THREE.Vector3(side * (mountX + .14), mirrorY - .015, mirrorZ),
+      new THREE.Vector3(mirrorX, mirrorY + .035, mirrorZ), .018, chrome);
+    const mirror = add(new THREE.SphereGeometry(.1, 12, 8), chrome, mirrorX, mirrorY + .045, mirrorZ);
+    mirror.scale.set(.55, .75, 1.15);
+    const mirrorFace = add(new THREE.CircleGeometry(.066, 16), glass, side * (mountX + .244), mirrorY + .045, mirrorZ);
+    mirrorFace.scale.set(1.2, .80, 1); mirrorFace.rotation.y = side * Math.PI / 2;
     box(.075,.20,.12,chrome,side*width*.31,gc+.17,noseZ-.03);
     box(.075,.20,.12,chrome,side*width*.31,gc+.17,tailZ+.03);
     const flankX = side*(flank(belt-.2)+.016);
@@ -420,7 +464,10 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
       box(.10,.06,1.05,chrome,side*width*.48,gc+.05,.12);
       for(let vent=0;vent<6;vent++)box(.018,.025,.38,trim,side*(flank(belt-.32)+.02),belt-.45+vent*.052,half-.66);
       box(.035,.035,roofSpan,chrome,side*width*.46*(1-spec.tumblehome),top-.03,roofCenter);
-      for(let rib=0;rib<3;rib++)box(.028,.018,roofSpan*.92,body,side*(.24+rib*.14),top+.022,roofCenter);
+      for(let rib=0;rib<3;rib++){
+        const x=side*(.24+rib*.14);
+        box(.028,.018,roofSpan*.92,body,x,top+.022+sectionLift(spec,x,top,-roofCenter,'roof'),roofCenter);
+      }
     }
     panel(.52, .12, .025, plate, -width * .195, doorBottom + .28, half + .15, .012);
     box(width*.72,.07,.26,chrome,0,gc+.02,half+.13);
@@ -435,11 +482,15 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     // reading as another hood. Sample the existing rear-deck slope exactly.
     const deck = (x: number, s: number): THREE.Vector3 => {
       const t = (spec.rearGlassBase - s) / (spec.rearGlassBase + half - .1);
-      return new THREE.Vector3(x, THREE.MathUtils.lerp(beltTop + .02, belt + .04, t) + .037, Z(s));
+      const y = THREE.MathUtils.lerp(beltTop + .02, belt + .04, t) + .035;
+      return new THREE.Vector3(x, y + sectionLift(spec,x,y,s,'body') + .003, Z(s));
     };
     const innerS = spec.rearGlassBase - .16, outerS = -half + .24;
-    for (const side of [-1, 1]) rod(deck(side * width * .32, innerS), deck(side * width * .32, outerS), .009, trim);
-    rod(deck(-width * .32, outerS), deck(width * .32, outerS), .009, trim);
+    for (const side of [-1, 1]) rod(deck(side * width * .32, innerS), deck(side * width * .32, outerS), .0035, trim);
+    for (let segment = 0; segment < 8; segment++) {
+      const x1 = width * .32 * (segment / 4 - 1), x2 = width * .32 * ((segment + 1) / 4 - 1);
+      rod(deck(x1, outerS), deck(x2, outerS), .0035, trim);
+    }
     panel(.13, .075, .07, chrome, 0, belt - .06, half + .015, .018);
     panel(.028, .035, .012, trim, 0, belt - .06, half + .058, .006);
   }
