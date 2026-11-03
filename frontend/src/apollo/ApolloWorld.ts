@@ -924,7 +924,18 @@ export class ApolloWorld {
   setQuality(value: ApolloQuality): void {
     this.quality = value;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, { low: 1, medium: 1.35, high: 1.75 }[value]));
-    this.renderer.shadowMap.enabled = value !== 'low';
+    const shadowsEnabled = value !== 'low';
+    if(this.renderer.shadowMap.enabled !== shadowsEnabled){
+      this.renderer.shadowMap.enabled = shadowsEnabled;
+      // Shadow availability is compiled into Standard/Physical programs. Dirty
+      // every scene material when crossing the low tier, including imported ones.
+      const changed = new Set<THREE.Material>();
+      this.scene.traverse(node=>{
+        if(!(node instanceof THREE.Mesh))return;
+        for(const material of Array.isArray(node.material)?node.material:[node.material])changed.add(material);
+      });
+      changed.forEach(material=>{material.needsUpdate=true;});
+    }
     this.renderer.shadowMap.needsUpdate = true;
     const size = value === 'high' ? 2048 : 1024;
     if (this.sun.shadow.mapSize.x !== size) { this.sun.shadow.map?.dispose(); this.sun.shadow.map = null; this.sun.shadow.mapSize.set(size, size); }
