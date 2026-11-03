@@ -178,6 +178,12 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     return mesh;
   };
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number): THREE.Mesh => add(new THREE.BoxGeometry(w, h, d), material, x, y, z);
+  const rod = (a: THREE.Vector3, b: THREE.Vector3, radius: number, material: THREE.Material): void => {
+    const delta = b.clone().sub(a);
+    const mesh = add(new THREE.CylinderGeometry(radius, radius, delta.length(), 6), material);
+    mesh.position.copy(a).add(b).multiplyScalar(.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+  };
 
   const gc = spec.clearance, belt = spec.belt, top = spec.height;
   const beltTop = belt + 0.08;
@@ -186,10 +192,26 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   const Z = (s: number): number => -s;
   const flank = (y: number): number => (width / 2) * (1 - spec.tumblehome * 0.35 * Math.max(0, y - gc) / (top - gc));
   const fore = half + 0.045;
+  const surfaceX = (y: number, s: number, glassSurface = false): number => {
+    const end = Math.max(0, (Math.abs(s) - (half - .7)) / .7);
+    return (glassSurface ? width * .45 : width / 2) *
+      (1 - spec.tumblehome * (glassSurface ? 1 : .35) * Math.max(0, y - gc) / (top - gc)) * (1 - .09 * end * end);
+  };
 
-  // Lower shell: bumpers, hood, shoulder line and tail in one rounded profile.
+  // Cut the wheel openings into the shell itself. A dark disc on an unbroken
+  // flank makes the wheels look glued onto a slab, particularly in side views.
+  const openingRadius = spec.wheelRadius * 1.16;
+  const openingAngle = Math.asin((spec.wheelRadius - gc) / openingRadius);
+  const lowerEdge: Point[] = [[-half + .04, gc]];
+  for (const axle of [-spec.wheelbase / 2, spec.wheelbase / 2]) {
+    for (let step = 0; step <= 18; step++) {
+      const angle = Math.PI + openingAngle - step / 18 * (Math.PI + 2 * openingAngle);
+      lowerEdge.push([axle + Math.cos(angle) * openingRadius, spec.wheelRadius + Math.sin(angle) * openingRadius]);
+    }
+  }
+  // Bumpers, hood, shoulder line and tail share one rounded profile.
   add(sculpt(extrudeProfile([
-    [-half + 0.04, gc], [half - 0.04, gc], [half, gc + 0.22], [half, belt - 0.16],
+    ...lowerEdge, [half - 0.04, gc], [half, gc + 0.22], [half, belt - 0.16],
     [half - 0.08, belt - 0.04], [spec.windshieldBase, beltTop],
     [spec.rearGlassBase, beltTop + 0.02], [-half + 0.1, belt + 0.04], [-half, belt - 0.14], [-half, gc + 0.22],
   ], spec.corner, width), spec, spec.tumblehome * 0.35), body);
@@ -206,6 +228,35 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   for (const s of spec.pillars) pillar([s + 0.05, beltTop], [s - 0.05, beltTop], [s - 0.05, roofBase], [s + 0.05, roofBase]);
   if (spec.blindFrom !== undefined) {
     add(sculpt(extrudeProfile([[spec.blindFrom, beltTop - 0.02], [spec.blindFrom, top - 0.04], [spec.roofRear - 0.06, top - 0.04], [spec.rearGlassBase, beltTop - 0.02]], 0.04, width * 0.93, 0.02), spec, spec.tumblehome), body);
+  }
+  // Continuous glazing surrounds follow the sculpted surface, including its
+  // roof lean and end taper. These outlines give the greenhouse its own depth.
+  for (const side of [-1, 1]) {
+    const surround: Point[] = [
+      [spec.windshieldBase, beltTop], [spec.roofFront, roofBase],
+      [spec.roofRear, roofBase], [spec.rearGlassBase, beltTop], [spec.windshieldBase, beltTop],
+    ];
+    for (let i = 1; i < surround.length; i++) {
+      const [sa, ya] = surround[i - 1], [sb, yb] = surround[i];
+      const a = new THREE.Vector3(side * (surfaceX(ya, sa, true) + .012), ya, Z(sa));
+      const b = new THREE.Vector3(side * (surfaceX(yb, sb, true) + .012), yb, Z(sb));
+      rod(a, b, .022, chrome);
+    }
+    // Stamped door shut-lines close above the rocker and stop below the glass.
+    const doorRear = options.kind === 'van' ? -.55 : -.72;
+    const doorFront = spec.windshieldBase - .12;
+    const seams: Point[] = [[doorRear, beltTop - .03], [doorRear, gc + .22],
+      [doorFront - .15, gc + .22], [doorFront, beltTop - .03]];
+    for (let i = 1; i < seams.length; i++) {
+      const [sa, ya] = seams[i - 1], [sb, yb] = seams[i];
+      rod(new THREE.Vector3(side * (surfaceX(ya, sa) + .008), ya, Z(sa)),
+        new THREE.Vector3(side * (surfaceX(yb, sb) + .008), yb, Z(sb)), .009, trim);
+    }
+    if (options.kind !== 'van') {
+      const s = spec.pillars[0];
+      rod(new THREE.Vector3(side * (surfaceX(gc + .22, s) + .008), gc + .22, Z(s)),
+        new THREE.Vector3(side * (surfaceX(beltTop - .03, s) + .008), beltTop - .03, Z(s)), .009, trim);
+    }
   }
   // Dark underbody and side sills close the gap between wheels so no daylight shows through.
   box(width * 0.86, 0.16, spec.length * 0.9, trim, 0, gc + 0.06, 0);
@@ -235,7 +286,7 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
       // the tyre and visibly penetrate the road by twenty percent of its radius.
       const arch = new THREE.Mesh(new THREE.CircleGeometry(r * 1.2, 28, 0, Math.PI), trim);
       arch.rotation.y = side * Math.PI / 2; arch.position.set(side * (flank(r) + 0.006), r, axle); group.add(arch);
-      const lip = add(new THREE.TorusGeometry(r * 1.08, .024, 5, 24, Math.PI), chrome, side * (flank(r) + .024), r, axle);
+      const lip = add(new THREE.TorusGeometry(openingRadius + .014, .024, 5, 24, Math.PI), chrome, side * (flank(r) + .012), r, axle);
       lip.rotation.y = side * Math.PI / 2;
       // Narrow moulded tyre grooves catch highlights without allocating textures.
       for (const offset of [-.08,.08]) {
@@ -266,36 +317,51 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   for (const side of [-1, 1]) {
     if(options.periodStyle){
       for(const dx of[-.105,.105]){
-        const housing=add(new THREE.CylinderGeometry(.105,.105,.07,16),chrome,side*width*.34+dx,belt-.2,noseZ-.025);housing.rotation.x=Math.PI/2;
-        const lens=add(new THREE.CylinderGeometry(.079,.079,.08,16),headlamp,side*width*.34+dx,belt-.2,noseZ-.055);lens.rotation.x=Math.PI/2;
+        const housing=add(new THREE.CylinderGeometry(.105,.105,.16,16),chrome,side*width*.34+dx,belt-.2,noseZ+.01);housing.rotation.x=Math.PI/2;
+        const seal=add(new THREE.CylinderGeometry(.091,.091,.014,16),trim,side*width*.34+dx,belt-.2,noseZ-.074);seal.rotation.x=Math.PI/2;
+        const lens=add(new THREE.CylinderGeometry(.079,.079,.012,16),headlamp,side*width*.34+dx,belt-.2,noseZ-.084);lens.rotation.x=Math.PI/2;
       }
       box(.018,.045,spec.length*.70,chrome,side*(width/2+.005),belt-.17,0);
     }else box(0.36, 0.1, 0.05, headlamp, side * width * 0.36, belt - 0.2, noseZ);
-    box(0.3, 0.12, 0.05, taillamp, side * width * 0.38, belt - 0.1, tailZ);
+    box(0.3, 0.12, 0.12, taillamp, side * width * 0.38, belt - 0.1, tailZ);
     box(0.1, 0.13, 0.2, body, side * (flank(belt + 0.12) + 0.05), belt + 0.12, Z(spec.windshieldBase - 0.2));
     box(0.02, 0.1, 0.16, trim, side * (flank(belt + 0.12) + 0.105), belt + 0.12, Z(spec.windshieldBase - 0.2));
     // Period-correct side marker and a recessed door seam make the flank read as
     // assembled sheet metal instead of one continuous extrusion at gameplay distance.
     box(0.025, 0.055, 0.13, headlamp, side * (flank(belt - 0.03) + 0.018), belt - 0.03, Z(half - 0.32));
-    box(0.018, 0.62, 0.012, trim, side * (flank(belt - 0.18) + 0.012), belt - 0.02, Z(-0.02));
     for (const s of [0.1, -0.7]) box(0.03, 0.025, 0.2, chrome, side * (flank(belt - 0.08) + 0.01), belt - 0.08, Z(s));
     if (spec.roofRails) {
       box(0.04, 0.04, (spec.roofFront - spec.roofRear) * 0.82, chrome, side * flank(top) * 0.78, top + 0.045, Z((spec.roofFront + spec.roofRear) / 2));
     }
   }
-  box(width * 0.5, 0.22, 0.04, trim, 0, gc + 0.34, noseZ);
+  box(width * 0.5, 0.22, 0.11, trim, 0, gc + 0.34, noseZ + .035);
   for (let i = 0; i < 4; i++) box(width * 0.46, 0.012, 0.045, chrome, 0, gc + 0.27 + i * 0.045, noseZ - 0.002);
   box(0.52, 0.12, 0.03, plate, 0, gc + 0.2, noseZ - 0.015);
   box(0.52, 0.12, 0.03, plate, 0, gc + 0.38, tailZ + 0.015);
   box(width * 0.9, 0.1, 0.18, options.periodStyle?chrome:trim, 0, gc + 0.12, -half + 0.03);
   box(width * 0.9, 0.1, 0.18, options.periodStyle?chrome:trim, 0, gc + 0.12, half - 0.03);
-  // Windshield blades follow the sloping glass; hood shut-lines and the fuel
-  // hatch provide scale cues even when the transport is parked.
+  // Windshield blades lie on the sloping glass and connect to their cowl pivots.
+  const windscreenPoint = (x: number, y: number): THREE.Vector3 => {
+    const t = (y - beltTop) / (roofBase - beltTop);
+    return new THREE.Vector3(x, y, Z(THREE.MathUtils.lerp(spec.windshieldBase, spec.roofFront, t)) - .025);
+  };
   for (const side of [-1,1]) {
-    const blade = box(.38,.018,.025,trim,side*width*.23,beltTop+.09,Z(spec.windshieldBase-.11));
-    blade.rotation.y=side*.12;
-    const arm=box(.018,.13,.018,chrome,side*width*.19,beltTop+.04,Z(spec.windshieldBase-.05));arm.rotation.x=-.6;
-    box(.012,.018,Math.max(.3,half-spec.windshieldBase-.14),trim,side*width*.30,belt+.035,Z((half+spec.windshieldBase)/2));
+    const pivot = windscreenPoint(side * width * .19, beltTop + .012);
+    const bladeStart = windscreenPoint(side * width * .08, beltTop + .07);
+    const bladeEnd = windscreenPoint(side * width * .34, beltTop + .13);
+    rod(pivot, bladeStart.clone().lerp(bladeEnd, .55), .011, chrome);
+    rod(bladeStart, bladeEnd, .016, trim);
+    add(new THREE.SphereGeometry(.025, 8, 6), chrome, pivot.x, pivot.y, pivot.z);
+    // Hood seams follow the sloping top instead of hovering over the nose.
+    const hood = (s: number): THREE.Vector3 => new THREE.Vector3(side * width * .30,
+      THREE.MathUtils.lerp(beltTop, belt - .04, (s - spec.windshieldBase) / (half - .08 - spec.windshieldBase)) + .009, Z(s));
+    rod(hood(spec.windshieldBase + .10), hood(half - .23), .008, trim);
+  }
+  // A recessed cowl intake is broad enough to read from the follow camera.
+  for (let slot = -5; slot <= 5; slot++) {
+    const s = spec.windshieldBase + .12;
+    const y = THREE.MathUtils.lerp(beltTop, belt - .04, .12 / (half - .08 - spec.windshieldBase)) + .008;
+    box(.052, .008, .095, trim, slot * width * .052, y, Z(s));
   }
   box(.014,.15,.18,chrome,-flank(belt-.25)-.01,belt-.25,half-.62);
 
