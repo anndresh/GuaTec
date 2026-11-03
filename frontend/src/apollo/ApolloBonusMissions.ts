@@ -16,8 +16,8 @@ const descriptions: Record<ApolloBonusCheckpoint['kind'], { code: string; title:
   'flight-plan': { code: 'OPS / 02', title: 'Mesa de secuencias', verb: 'Ordena los documentos en la línea de tiempo.', note: 'Preparación → tripulación a bordo → encendido → despegue.' },
   telemetry: { code: 'DATA / 03', title: 'Consola de telemetría', verb: 'Ajusta los tres sintonizadores hasta superponer las señales.', note: 'La traza punteada es la referencia; la traza continua es tu lectura.' },
   cables: { code: 'LINK / 04', title: 'Panel de conexiones', verb: 'Lleva cada cable al terminal con la misma letra.', note: 'Las letras identifican los canales además del color.' },
-  'crew-manifest': { code: 'CREW / 05', title: 'Registro de tripulación', verb: 'Imprime las tres credenciales pasando el rodillo sobre cada ficha.', note: 'Impresor de práctica: las credenciales y el registro son una adaptación educativa.' },
-  weather: { code: 'WX / 06', title: 'Parte de observación', verb: 'Alinea la veleta y ajusta la placa de nubosidad.', note: 'Referencia del ejercicio: rumbo 225° y placa al 35 %. No son mediciones históricas.' },
+  'crew-manifest': { code: 'CREW / 05', title: 'Registro de tripulación', verb: 'Imprime las tres credenciales pasando el rodillo sobre cada ficha.', note: 'Comprueba cada credencial y registra la función de cada tripulante en el manifiesto.' },
+  weather: { code: 'WX / 06', title: 'Parte de observación', verb: 'Alinea la veleta y ajusta la placa de nubosidad.', note: 'Referencia del puesto: rumbo 225° y placa de nubosidad al 35 %.' },
   beacons: { code: 'SAFE / 07', title: 'Barrido del perímetro', verb: 'Mueve el visor sobre cada baliza y mantén el encuadre.', note: 'Inspecciona B1, B2 y B3. También puedes mover el visor con las flechas.' },
 };
 
@@ -49,7 +49,7 @@ export function mountBonusMission(host: HTMLElement, bonus: ApolloBonusCheckpoin
   const progress = node('div', 'ap-stand-progress'); progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-label', apolloText('Verificación del stand')); progress.setAttribute('aria-valuemin', '0'); progress.setAttribute('aria-valuemax', '100');
   const progressBar = node('span'); progress.append(progressBar);
   const counter = node('output', 'ap-stand-counter', 'EN ESPERA');
-  rail.append(progress, counter, node('small', 'ap-stand-footnote', 'OPERACIONES DE APOYO · RECREACIÓN EDUCATIVA'));
+  rail.append(progress, counter, node('small', 'ap-stand-footnote', 'OPERACIONES DE APOYO · APOLLO 11'));
   const workspace = node('div', 'ap-stand-workspace'), plate = node('header', 'ap-stand-plate');
   plate.append(node('span', '', 'APOLLO 11'), node('span', '', 'AS-506 / LC-39A'), node('span', 'ap-stand-led', '● EN SERVICIO')); workspace.append(plate);
   const phaseCopy = PHASE_COPY[getLanguage()], phases = node('ol', 'ap-stand-phases');
@@ -227,7 +227,7 @@ export function mountBonusMission(host: HTMLElement, bonus: ApolloBonusCheckpoin
     const shutter = node('div', 'ap-cloud-plate'); shutter.append(node('span', '', 'PLACA DE NUBOSIDAD / REF 35 %')); controls.append(shutter);
     addControl('Obturador de nubosidad', 100, cloud, v => { cloud = v; shutter.style.setProperty('--cloud-cover', v + '%'); });
     panel.append(compass, controls); workspace.append(panel);
-    action('Sellar parte de observación', () => weatherAligned(heading, cloud) ? finish('Referencias cotejadas · parte meteorológico archivado.') : fail('La veleta o la placa no coincide con la referencia del ejercicio.'));
+    action('Sellar parte de observación', () => weatherAligned(heading, cloud) ? finish('Referencias cotejadas · parte meteorológico archivado.') : fail('La veleta o la placa no coincide con la referencia del puesto.'));
   }
 
   if (bonus.kind === 'beacons') {

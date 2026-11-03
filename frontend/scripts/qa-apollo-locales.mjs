@@ -45,7 +45,7 @@ try{
  checks.push('Language changes during loading and the introduction update the live scene without errors.');
  await page.getByRole('button',{name:'Skip introduction'}).click();
  const english=await page.evaluate(()=>({deck:[...document.querySelectorAll('.ap-deck-label')].map(n=>n.textContent),objective:document.querySelector('.ap-objective').getAttribute('aria-label'),mobile:[...document.querySelectorAll('[data-mobile-copy]')].map(n=>n.textContent),map:document.querySelector('.ap-minimap span').textContent}));
- assert.deepEqual(english.deck,['Map · M','Radio · R','Pause']);assert.equal(english.objective,'Current objective');assert.deepEqual(english.mobile,['Jump','Run']);assert.equal(english.map,'LC-39A · MAP / M');assert.ok(await page.evaluate(()=>window.mapCopy.includes('ORIENTATION')&&window.mapCopy.includes('OBSERVATION')&&window.mapCopy.includes('05 · HISTORICAL RECREATION')));checks.push({introLanguageRestored:english});
+ assert.deepEqual(english.deck,['Map · M','Radio · R','Pause']);assert.equal(english.objective,'Current objective');assert.deepEqual(english.mobile,['Jump','Run']);assert.equal(english.map,'LC-39A · MAP / M');assert.ok(await page.evaluate(()=>window.mapCopy.includes('ORIENTATION')&&window.mapCopy.includes('OBSERVATION')&&window.mapCopy.includes('05 · CREW TRANSFER')));checks.push({introLanguageRestored:english});
  await page.evaluate(()=>window.setLocale('fr'));assert.equal(await page.locator('.ap-objective').getAttribute('aria-label'),'Objectif actuel');
  await page.evaluate(()=>{window.setLocale('es');window.nearPower()});
  await page.getByRole('button',{name:'E · Banco de alimentación',exact:true}).click();

@@ -15,7 +15,7 @@ type Copy = typeof COPY.es;
 const COPY = {
   es: {
     protocol: 'Protocolo', adjustPhase: 'Ajustar', stabilizePhase: 'Estabilizar', capturePhase: 'Capturar', selectPhase: 'Elegir ficha', placePhase: 'Colocar', stampPhase: 'Sellar', tunePhase: 'Sintonizar', transmitPhase: 'Transmitir', ackPhase: 'Acuse', listening: 'ESCUCHANDO',
-    station: 'OPERACIONES DE APOYO · 1969', simulation: 'Instrumento educativo simulado · no opera sistemas de lanzamiento',
+    station: 'OPERACIONES DE APOYO · 1969', recordHint: 'Instrumento de apoyo · registra cada comprobación',
     survey: 'Reconocimiento óptico', records: 'Mesa de documentación', signal: 'Enlace de radio terrestre', tracking: 'Cámara de seguimiento',
     surveyHelp: 'Localiza cada estructura. Ajusta rumbo, aumento y enfoque hasta obtener una imagen estable; después acciona el obturador.',
     recordsHelp: 'Arrastra las tres fichas a su casilla del registro. También puedes seleccionar una ficha, cambiar de casilla con las flechas y colocarla con Enter.',
@@ -38,7 +38,7 @@ const COPY = {
   },
   en: {
     protocol: 'Protocol', adjustPhase: 'Adjust', stabilizePhase: 'Steady', capturePhase: 'Capture', selectPhase: 'Choose card', placePhase: 'Place', stampPhase: 'Stamp', tunePhase: 'Tune', transmitPhase: 'Transmit', ackPhase: 'Acknowledge', listening: 'LISTENING',
-    station: 'GROUND SUPPORT · 1969', simulation: 'Simulated educational instrument · does not operate launch systems',
+    station: 'GROUND SUPPORT · 1969', recordHint: 'Support instrument · record each check',
     survey: 'Optical survey', records: 'Documentation desk', signal: 'Ground radio link', tracking: 'Tracking camera',
     surveyHelp: 'Locate each structure. Adjust bearing, magnification and focus until the image is steady, then release the shutter.',
     recordsHelp: 'Drag the three cards into the report fields. You can also select a card, choose a field with the arrow keys and place it with Enter.',
@@ -61,7 +61,7 @@ const COPY = {
   },
   fr: {
     protocol: 'Protocole', adjustPhase: 'Régler', stabilizePhase: 'Stabiliser', capturePhase: 'Capturer', selectPhase: 'Choisir', placePhase: 'Placer', stampPhase: 'Tamponner', tunePhase: 'Accorder', transmitPhase: 'Transmettre', ackPhase: 'Accusé', listening: 'ÉCOUTE',
-    station: 'SOUTIEN AU SOL · 1969', simulation: 'Instrument pédagogique simulé · ne commande aucun système de lancement',
+    station: 'SOUTIEN AU SOL · 1969', recordHint: 'Instrument de soutien · consignez chaque vérification',
     survey: 'Reconnaissance optique', records: 'Table de documentation', signal: 'Liaison radio terrestre', tracking: 'Caméra de poursuite',
     surveyHelp: 'Repérez chaque structure. Réglez le cap, le grossissement et la mise au point jusqu’à stabiliser l’image, puis déclenchez.',
     recordsHelp: 'Glissez les trois fiches dans les champs du rapport. Vous pouvez aussi sélectionner une fiche, choisir un champ avec les flèches et la placer avec Entrée.',
@@ -132,7 +132,7 @@ export function mountInstrument(host: HTMLElement, kind: InstrumentKind, options
   const feedback = node('p', 'ap-inst-feedback'); feedback.setAttribute('aria-live', 'polite'); root.append(feedback);
   const footer = node('footer', 'ap-inst-footer');
   const back = node('button', 'ap-inst-back', copy.back); back.type = 'button';
-  footer.append(node('small', '', copy.simulation), back); root.append(footer); host.append(root);
+  footer.append(node('small', '', copy.recordHint), back); root.append(footer); host.append(root);
   const listen = (target: EventTarget, name: string, handler: EventListenerOrEventListenerObject, opts?: AddEventListenerOptions) => { target.addEventListener(name, handler, opts); cleanups.push(() => target.removeEventListener(name, handler, opts)); };
   const snapshot = () => JSON.parse(JSON.stringify(draft)) as InstrumentDraft;
   const persist = () => { const data = JSON.stringify(draft); if (data !== lastDraft && !disposed) { lastDraft = data; options.onDraft?.(snapshot()); } };

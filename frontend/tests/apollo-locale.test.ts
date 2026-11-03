@@ -77,7 +77,7 @@ test('physical signs, wind direction and remote distance use the selected langua
     ['DOCUMENTACIÓN','DOCUMENTATION','DOCUMENTATION'],
     ['COMUNICACIONES','COMMUNICATIONS','COMMUNICATIONS'],
     ['OBSERVACIÓN','OBSERVATION','OBSERVATION'],
-    ['05 · RECREACIÓN HISTÓRICA','05 · HISTORICAL RECREATION','05 · RECONSTITUTION HISTORIQUE'],
+    ['05 · TRASLADO DE TRIPULACIÓN','05 · CREW TRANSFER','05 · TRANSFERT DE L’ÉQUIPAGE'],
     ['225° / SO','225° / SW','225° / SO'],
     ['5,6 km','5.6 km','5,6 km'],
   ]){

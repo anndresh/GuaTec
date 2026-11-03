@@ -21,6 +21,6 @@ export function renderApolloReport(host:HTMLElement,save:ApolloSave):void{
     const copy=node('div');copy.append(node('small','',operation.kind==='stand'?'Operación de apoyo':'Hito histórico'),node('strong','',operation.title));
     item.append(status,copy);list.append(item);
   }
-  root.append(list,node('h4','','Referencia histórica · 16 de julio de 1969'),node('p','ap-report-reference','Apollo 11 despegó de la plataforma 39A a las 09:32 EDT. Las tareas de apoyo, los registros y Daniel Carter son adaptaciones educativas; el jugador observa el lanzamiento desde un área segura.'));
+  root.append(list,node('h4','','Referencia histórica · 16 de julio de 1969'),node('p','ap-report-reference','Apollo 11 despegó de la plataforma 39A a las 09:32 EDT. El equipo de apoyo completó las comprobaciones y registró el lanzamiento desde el área de observación segura.'));
   const source=node('a','ap-report-source','NASA · Resumen de Apollo 11');source.href='https://www.nasa.gov/history/apollo-11-mission-overview/';source.target='_blank';source.rel='noopener noreferrer';root.append(source);host.append(root);
 }

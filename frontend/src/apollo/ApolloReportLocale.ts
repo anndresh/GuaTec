@@ -12,6 +12,6 @@ export const REPORT_TRANSLATIONS:readonly (readonly [string,string,string])[]=[
   ['Registro completado','Record complete','Registre complété'],
   ['Registro pendiente','Record pending','Enregistrement en attente'],
   ['Referencia histórica · 16 de julio de 1969','Historical reference · July 16, 1969','Référence historique · 16 juillet 1969'],
-  ['Apollo 11 despegó de la plataforma 39A a las 09:32 EDT. Las tareas de apoyo, los registros y Daniel Carter son adaptaciones educativas; el jugador observa el lanzamiento desde un área segura.','Apollo 11 lifted off from pad 39A at 09:32 EDT. The support tasks, logs and Daniel Carter are educational adaptations; the player observes the launch from a safe area.','Apollo 11 a décollé du pas de tir 39A à 09:32 EDT. Les tâches de soutien, les registres et Daniel Carter sont des adaptations pédagogiques ; le joueur observe le lancement depuis une zone sûre.'],
+  ['Apollo 11 despegó de la plataforma 39A a las 09:32 EDT. El equipo de apoyo completó las comprobaciones y registró el lanzamiento desde el área de observación segura.','Apollo 11 lifted off from pad 39A at 09:32 EDT. The support team completed the checks and recorded the launch from the safe observation area.','Apollo 11 a décollé du pas de tir 39A à 09:32 EDT. L’équipe de soutien a terminé les vérifications et consigné le lancement depuis la zone d’observation sûre.'],
   ['NASA · Resumen de Apollo 11','NASA · Apollo 11 mission overview','NASA · Présentation de la mission Apollo 11'],
 ];

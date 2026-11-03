@@ -312,8 +312,8 @@ export class ApolloScreen implements Screen {
   private showWelcome() {
     this.modalKind='welcome';
     const box=this.openModal('APOLLO 11','El comienzo de una nueva era');
-    box.append(el('p','','16 de julio de 1969 · Centro Espacial Kennedy, Florida. Eres un técnico ficticio de apoyo a operaciones terrestres. Observa, documenta y comunica: tu trabajo termina en un punto seguro, antes del despegue de las 9:32 a. m. EDT.'));
-    box.append(el('p','ap-note','Recreación educativa. Daniel Carter y los diálogos son ficticios. Las rutas se han acortado; no hay interiores accesibles. Los trajes Mercenary son una adaptación artística, no réplicas del A7L.'));
+    box.append(el('p','','16 de julio de 1969 · Centro Espacial Kennedy, Florida. Eres un técnico de apoyo a operaciones terrestres. Observa, documenta y comunica: tu trabajo termina en un punto seguro, antes del despegue de las 9:32 a. m. EDT.'));
+    box.append(el('p','ap-note','Preséntate en orientación, comprueba el equipo de apoyo y mantén el enlace con Daniel Carter. Permanece en las zonas autorizadas del complejo.'));
     if(this.state.completed.length || this.state.bonusCompleted.length) box.append(el('p','ap-resume',`Registro recuperado · ${this.state.completed.length + this.state.bonusCompleted.length} de 15 operaciones de historia.`));
     const start=this.button(this.state.done?'Ver epílogo':this.state.completed.length||this.state.bonusCompleted.length||this.state.checks.length?'Continuar misión':'Comenzar operaciones',()=>{
       this.started=true; this.closeModal(); void this.audio.start().catch(()=>this.notify('Audio no disponible; los subtítulos permanecen activos.'));
@@ -494,13 +494,13 @@ export class ApolloScreen implements Screen {
       else if(time<30) {label='NARRACIÓN ORIGINAL';text=INTRO[Math.min(2,Math.floor((time-4)/8.7))];}
       else {label='MISIÓN 01';title='APOLLO 11';text='EL COMIENZO DE UNA NUEVA ERA';}
     } else if(mode==='crew') {
-      label=time<24?'RECREACIÓN HISTÓRICA RETROSPECTIVA · 06:27 EDT':'TRANSICIÓN TEMPORAL · 09:30 EDT';
+      label=time<24?'TRASLADO DE LA TRIPULACIÓN · 06:27 EDT':'TRANSICIÓN TEMPORAL · 09:30 EDT';
       title=time<24?'EL CAMINO HACIA APOLLO 11':'TRIPULACIÓN A BORDO';
-      text=time<24?'Daniel Carter (ficticio): «Ahí van. Armstrong, Collins y Aldrin. Después de tantos años de preparación, todo se reduce a este momento.»':'El traslado y el embarque han concluido. Regresamos a los preparativos finales de observación.';
+      text=time<24?'Daniel Carter: «Ahí van. Armstrong, Collins y Aldrin. Después de tantos años de preparación, todo se reduce a este momento.»':'El traslado y el embarque han concluido. Regresamos a los preparativos finales de observación.';
     } else {
       label='16 JUL 1969 · 09:32 EDT · LC-39A';
       title=time<10?`T − ${String(Math.ceil(10-time)).padStart(2,'0')}`:time<16?'DESPEGUE':'APOLLO 11 · EN ASCENSO';
-      text=time<5?'Daniel Carter (ficticio): «Atención, estamos entrando en los últimos segundos. Toda la atención está puesta sobre el Saturn V.»':time<10?['Cinco…','Cuatro…','Tres…','Dos…','Uno…'][Math.min(4,Math.floor(time-5))]:time<19?'Daniel Carter (ficticio): «¡Despegue confirmado!»':'Daniel Carter (ficticio): «Ahí está. Apollo 11 se dirige hacia el espacio.»';
+      text=time<5?'Daniel Carter: «Atención, estamos entrando en los últimos segundos. Toda la atención está puesta sobre el Saturn V.»':time<10?['Cinco…','Cuatro…','Tres…','Dos…','Uno…'][Math.min(4,Math.floor(time-5))]:time<19?'Daniel Carter: «¡Despegue confirmado!»':'Daniel Carter: «Ahí está. Apollo 11 se dirige hacia el espacio.»';
       this.audio.launch(time,5600);
     }
     let caption=this.movieOverlay.querySelector<HTMLElement>('.ap-cinema-caption');
@@ -621,7 +621,7 @@ export class ApolloScreen implements Screen {
     if(!this.started || this.movie || !this.world)return;
     if(this.instrument){this.notify('Cierra el instrumento para abrir el mapa.');return;}
     if(this.state.checkpoint===0)this.act('map');
-    this.modalKind='map'; const box=this.openModal('MAPA DE OPERACIONES · GEOGRAFÍA COMPRIMIDA','Centro Espacial Kennedy');
+    this.modalKind='map'; const box=this.openModal('MAPA DE OPERACIONES · COMPLEJO 39','Centro Espacial Kennedy');
     box.classList.add('ap-map-dialog');
     box.append(this.button('Volver a operaciones',()=>this.closeModal(),'ap-button ap-primary'),this.buildOperationsMap(false));
   }

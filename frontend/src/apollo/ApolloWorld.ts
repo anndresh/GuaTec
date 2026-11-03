@@ -565,7 +565,7 @@ export class ApolloWorld {
     const labels:readonly (readonly [string,string,StationKind])[]=[
       ['ORIENTACIÓN','01 · OPERACIONES DE APOYO','map'],['RECONOCIMIENTO','02 · OBSERVACIÓN DEL COMPLEJO','camera'],
       ['DOCUMENTACIÓN','03 · REGISTRO DE COMUNICACIONES','desk'],['COMUNICACIONES','04 · ESTACIÓN DE APOYO','radio'],
-      ['LA TRIPULACIÓN','05 · RECREACIÓN HISTÓRICA','crew'],['OBSERVACIÓN','06 · CÁMARA DE SEGUIMIENTO','camera'],
+      ['LA TRIPULACIÓN','05 · TRASLADO DE TRIPULACIÓN','crew'],['OBSERVACIÓN','06 · CÁMARA DE SEGUIMIENTO','camera'],
     ];
     SITE_PLOTS.slice(0,6).forEach((plot,i)=>this.station(plot.target.x,plot.target.z,...labels[i]!));
     const dish = buildTrackingDish((name, color, roughness, metalness) => this.material(name, color, roughness, metalness));
