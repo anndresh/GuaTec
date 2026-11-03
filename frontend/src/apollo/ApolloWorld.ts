@@ -5,7 +5,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildCar, poseVehicle, CAR_SPECS, type CarKind, type MaterialFactory } from './ApolloVehicles';
 import { buildBench, type Kit, type StationKind } from './ApolloFurniture';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import {createApolloDaylight, finishApolloMaterial} from './ApolloSurfaceFinish';
+import {createApolloContactShadows, createApolloCoastalScrub} from './ApolloGroundDetail';
 import { apolloText } from './ApolloLocale';
 import { BONUS_CHECKPOINTS, type ApolloBonusCheckpoint } from './ApolloState';
 import { buildStandModel, createStandAtlas, standCollisionProxies, type StandModelKind, type StandMovingPart } from './ApolloStandModels';
@@ -120,6 +121,7 @@ export class ApolloWorld {
   private movingStandParts:StandMovingPart[]=[];
   private activeStation='';
   private environmentTarget: THREE.WebGLRenderTarget | null = null;
+  private coastalScrub: THREE.InstancedMesh | null = null;
 
   constructor(private host: HTMLElement, private callbacks: { onInteract: () => void; onMap: () => void; onPause?: () => void }) {
     this.furniture = {
@@ -141,28 +143,26 @@ export class ApolloWorld {
     this.renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none';
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.04;
+    this.renderer.toneMappingExposure = .98;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
-    const environment = new RoomEnvironment();
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.environmentTarget = pmrem.fromScene(environment, .08);
+    this.sun.position.set(220, 260, 120);
+    this.sun.target.position.set(0, 0, 140);
+    this.environmentTarget = createApolloDaylight(this.renderer, this.sun.position.clone().sub(this.sun.target.position).normalize());
     this.scene.environment = this.environmentTarget.texture;
-    this.scene.environmentIntensity = .32;
-    environment.dispose(); pmrem.dispose();
+    this.scene.environmentIntensity = .52;
     host.append(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x9dcce7);
     this.scene.fog = new THREE.FogExp2(0xb9d4dc, 0.00038);
-    this.scene.add(new THREE.HemisphereLight(0xd3e8f2, 0x827860, 1.45));
-    this.sun.position.set(220, 260, 120);
+    this.scene.add(new THREE.HemisphereLight(0xd3e8f2, 0x827860, 1.05));
+    this.sun.intensity = 3;
     this.sun.castShadow = true;
     this.sun.shadow.camera.left = -180; this.sun.shadow.camera.right = 180;
     this.sun.shadow.camera.top = 200; this.sun.shadow.camera.bottom = -200;
     this.sun.shadow.camera.near = 10; this.sun.shadow.camera.far = 750;
     this.sun.shadow.bias = -0.00035;
-    this.sun.shadow.normalBias = 0.14;
-    this.sun.target.position.set(0, 0, 140);
+    this.sun.shadow.normalBias = .045;
     this.scene.add(this.sun, this.sun.target, this.exhaustLight);
     this.exhaustLight.position.set(0, 12, 0);
     this.buildGround();
@@ -178,6 +178,10 @@ export class ApolloWorld {
     // still merged into material batches for the active-play draw-call budget.
     for (const child of [...this.scene.children]) if (child instanceof THREE.Group && !child.userData.dynamicVehicle && !child.userData.dynamicTechnician) this.mergeAuthored(child);
     this.flushStatic();
+    // Contact and vegetation instances retain their matrices; never flatten
+    // them through the static single-mesh batching pass above.
+    this.scene.add(createApolloContactShadows(this.vehicleRigs));
+    this.coastalScrub = createApolloCoastalScrub(); this.scene.add(this.coastalScrub);
     this.scene.add(this.playerRoot, this.crewRoot);
     this.playerRoot.position.copy(this.player);
     // Keep the astronaut readable as a third-person hero from the first frame.
@@ -225,7 +229,15 @@ export class ApolloWorld {
   }
 
   private material(name: string, color: number, roughness = 0.8, metalness = 0): THREE.MeshStandardMaterial {
-    if (!this.materials.has(name)) this.materials.set(name, new THREE.MeshStandardMaterial({ color, roughness, metalness }));
+    if (!this.materials.has(name)) {
+      const material = name.startsWith('car-paint-')
+        ? new THREE.MeshPhysicalMaterial({color,roughness:.34,metalness:0,clearcoat:.6,clearcoatRoughness:.28})
+        : new THREE.MeshStandardMaterial({color,roughness,metalness});
+      if (name === 'car-chrome' || name === 'car-rim') { material.metalness=.88;material.roughness=.25; }
+      if (name === 'car-glass' || name === 'service-window-glass') { material.metalness=.12;material.roughness=.16;material.envMapIntensity=.8; }
+      finishApolloMaterial(name,material);
+      this.materials.set(name,material);
+    }
     return this.materials.get(name)!;
   }
   /** Immutable planes may share buffers only at identical dimensions. Keeping the
@@ -341,6 +353,7 @@ export class ApolloWorld {
   }
   private buildGround(): void {
     const soil = new THREE.MeshStandardMaterial({ map: this.texture('soil', 1600), roughness: 1 });
+    finishApolloMaterial('terrain',soil);
     this.groundPlane(16000, 16000, 0, 0, soil, -0.12);
     this.groundPlane(42, 35, 0, 5600, new THREE.MeshStandardMaterial({ map: this.texture('concrete', 3), roughness: 1 }), 0.04);
     this.sign('OBSERVACIÓN DEL LANZAMIENTO', 'DISTANCIA DE SEGURIDAD · 5,6 KM', -8, 2.2, 5590, 0, 8);
@@ -923,6 +936,7 @@ export class ApolloWorld {
   }
   setQuality(value: ApolloQuality): void {
     this.quality = value;
+    if(this.coastalScrub)this.coastalScrub.count={low:600,medium:1100,high:1800}[value];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, { low: 1, medium: 1.35, high: 1.75 }[value]));
     const shadowsEnabled = value !== 'low';
     if(this.renderer.shadowMap.enabled !== shadowsEnabled){
