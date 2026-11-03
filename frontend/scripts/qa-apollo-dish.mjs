@@ -12,7 +12,7 @@ const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],m
 page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
 await page.route('**/apollo-dish-acceptance',route=>route.fulfill({contentType:'text/html',body:`
 <style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden}</style><div id="world"></div><script type="module">
-import {ApolloWorld} from '/src/apollo/ApolloWorld.ts';import * as THREE from 'three';window.THREE=THREE;window.world=new ApolloWorld(document.querySelector('#world'),{onInteract(){},onMap(){}});await world.ready;world.setSuspended(true);world.update(0);window.ready=true;
+import {ApolloWorld} from '/src/apollo/ApolloWorld.ts';import * as THREE from '/node_modules/three/build/three.module.js';window.THREE=THREE;window.world=new ApolloWorld(document.querySelector('#world'),{onInteract(){},onMap(){}});await world.ready;world.setSuspended(true);world.update(0);window.ready=true;
 window.frame=(position,target)=>{world.playerRoot.visible=false;world.camera.position.set(...position);world.camera.lookAt(...target);world.camera.fov=45;world.camera.updateProjectionMatrix();world.renderer.render(world.scene,world.camera);return world.diagnostics()};
 </script>`}));
 try{
