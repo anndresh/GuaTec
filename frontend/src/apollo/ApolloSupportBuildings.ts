@@ -86,13 +86,29 @@ export function buildSupportBuilding(
       facadeBox(w + .2, h + .22, .08, recess, u, y, .042);
       facadeBox(w, h, .035, glass, u, y, .095);
       for (const side of [-1, 1]) {
-        facadeBox(.075, h + .16, .1, trim, u + side * (w / 2 + .03), y, .12);
+        facadeBox(.1, h + .16, .25, trim, u + side * (w / 2 + .03), y, .155);
         facadeBox(w + .22, .08, .15, trim, u, y + side * (h / 2 + .06), .13);
       }
       facadeBox(w + .3, .1, .34, metal, u, y - h / 2 - .12, .17);
       if (split) {
         facadeBox(.065, h, .075, trim, u, y, .14);
         facadeBox(w, .055, .075, trim, u, y + h * .14, .14);
+      }
+      if (face !== 2) {
+        // Deep Florida sun hoods give the occupied elevations a readable shadow
+        // line. Each shelf is borne by two triangular wall brackets, not floats.
+        const shadeY = y + h / 2 + .26;
+        facadeBox(w + .44, .1, .6, trim, u, shadeY, .32);
+        for (const side of [-1, 1]) {
+          const profile = new THREE.Shape();
+          profile.moveTo(.035, 0); profile.lineTo(.56, 0);
+          profile.lineTo(.035, -.3); profile.closePath();
+          const bracket = new THREE.ExtrudeGeometry(profile, { depth: .07, bevelEnabled: false });
+          bracket.rotateY(-Math.PI / 2); bracket.translate(.035, 0, 0);
+          const bracketU = u + side * (w / 2 + .08);
+          add(bracket, metal, cosine * bracketU + sine * outside, shadeY - .05,
+            -sine * bracketU + cosine * outside, angle);
+        }
       }
     };
     const louver = (u: number, y: number, w = 1.6, h = .95): void => {
@@ -108,7 +124,7 @@ export function buildSupportBuilding(
     for (let y = .9; y < height - .8; y += .6)
       facadeBox(along - 1.1, .018, .016, metal, 0, y, .009);
     for (const side of [-1, 1]) {
-      facadeBox(.26, height - .7, .16, trim, side * (along / 2 - .48), height / 2 + .13, .08);
+      facadeBox(.4, height - .7, .3, trim, side * (along / 2 - .48), height / 2 + .13, .15);
       const drainU = side * (along / 2 - .84);
       facadePipe(drainU, height / 2 + .08, .17, height - .35);
       // Scuppers connect the roof to each downpipe, with spaced saddle clamps
@@ -242,7 +258,7 @@ export function buildSupportBuilding(
   };
   if (variant === 0) {
     // Low office block: broad parapet, two separated service housings and ducts.
-    rooftopUnit(-width * .21, -depth * .12, 3.3, 2.7);
+    rooftopUnit(-width * .21, -depth * .12, 3.3, 2.7, 1.35);
     rooftopUnit(width * .23, depth * .2, 2.5, 2.1, .75);
     box(7, .4, .65, metal, -1.3, height + .52, -depth * .12);
     pipe(.18, 1.3, roof, width * .25, height + .83, -depth * .27);
@@ -259,12 +275,23 @@ export function buildSupportBuilding(
       for (let row = 0; row < 4; row++) box(width * .08, .045, .11, trim, x, height + .73 + row * .15, depth * .14 + .1);
     }
     rooftopUnit(width * .29, depth * .14, 2.8, 2.8, 1.15);
+    // Paired low extract cowls distinguish the service block from the offices.
+    // Broad flashing plates and flanged necks connect every hood to the roof.
+    for (const side of [-1, 1]) {
+      const x = width * .21 + side * .77, z = -depth * .28;
+      box(1.12, .12, 1.12, recess, x, height + .25, z);
+      pipe(.32, .84, metal, x, height + .73, z);
+      pipe(.39, .09, trim, x, height + .38, z);
+      pipe(.5, .12, recess, x, height + 1.16, z);
+      add(new THREE.CylinderGeometry(.28, .6, .25, 12), metal, x, height + 1.345, z);
+      pipe(.3, .075, trim, x, height + 1.51, z);
+    }
   } else if (variant === 2) {
     // Workshop block: two shallow pitched monitor roofs with glazed clerestories.
     for (const side of [-1, 1]) {
       const x = side * width * .22, w = width * .28, d = depth * .57;
       box(w, .72, d, wall, x, height + .58, -depth * .04);
-      pitchedRoof(w + .3, d + .3, .65, x, height + .96, -depth * .04);
+      pitchedRoof(w + .3, d + .3, .85, x, height + .96, -depth * .04);
       for (let bay = 0; bay < 4; bay++) {
         const z = -d * .37 + bay * d * .25 - depth * .04;
         for (const edge of [-1, 1]) {
@@ -286,6 +313,19 @@ export function buildSupportBuilding(
     }
     box(width * .42, .18, 2.2, trim, 0, height + .98, -depth * .13);
     rooflight(0, depth * .25);
+    // A low directional aerial stays below the roof equipment height allowance.
+    // Its feet, twin uprights, boom and graduated elements form one connected rig.
+    const aerialX = width * .25, aerialZ = depth * .29, aerialY = height + 1.96;
+    for (const side of [-1, 1]) {
+      box(.58, .14, .58, recess, aerialX + side * .85, height + .28, aerialZ);
+      pipe(.07, 1.63, metal, aerialX + side * .85, height + 1.145, aerialZ);
+      box(.24, .12, .18, trim, aerialX + side * .85, aerialY - .05, aerialZ);
+    }
+    box(3.1, .065, .065, metal, aerialX, aerialY, aerialZ);
+    for (let element = 0; element < 6; element++) {
+      const x = aerialX - 1.35 + element * .51;
+      box(.045, .045, 1.32 - element * .12, trim, x, aerialY + .055, aerialZ);
+    }
   }
 
   let triangles = 0;
