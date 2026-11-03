@@ -40,21 +40,44 @@ export function buildAssemblyBuilding(mat: MaterialFactory, detailed = true): TH
         for (const offset of [-13, 0, 13]) box(.18, 13.5, .16, steel, x + offset, y + 7, side * 67.89);
       }
       for (const offset of [-21.3, 21.3]) {
-        box(.9, 139, .65, steel, x + offset, 69.5, side * 67.55);
-        box(.16, 138, .74, recess, x + offset, 69.5, side * 67.62);
+        // A stepped channel, inner running face and wall cleats make the lift
+        // guides read as supported hardware rather than painted vertical lines.
+        box(1.2, 139, .85, steel, x + offset, 69.5, side * 67.52);
+        box(.5, 138, .08, recess, x + offset, 69.5, side * 67.99);
+        box(.14, 138, .1, steel, x + offset, 69.5, side * 68.04);
+        const outerX = x + Math.sign(offset) * 23.2;
+        box(2, 141, 1, trim, outerX, 70.5, side * 67.45);
+        for (const y of [7, 35, 63, 91, 119, 137])
+          box(2.4, .65, .18, steel, x + offset, y, side * 67.98);
       }
-      box(45, 2.1, .7, trim, x, 140.6, side * 67.55);
+      box(48.4, 3, 1, trim, x, 141, side * 67.45);
+      box(44, .65, .16, recess, x, 139.55, side * 68.01);
+      // The ventilation gallery sits between the portal lintel and roof band.
+      // Its dark backing and five framed bays establish the high-bay scale.
+      box(42, 4.8, .26, recess, x, 150.2, side * 67.12);
+      for (let slot = 0; slot < 5; slot++) {
+        const ventX = x - 16.4 + slot * 8.2;
+        box(7.6, .24, .55, steel, ventX, 152.6, side * 67.42);
+        for (let row = 0; row < 2; row++)
+          box(7.5, .22, .35, door, ventX, 149 + row * 1.6, side * 67.37);
+      }
     }
     if (!detailed) continue;
     // Engaged pilasters and restrained cladding joints give the exposed side
     // elevations the same architectural density as the rollout face.
     for (const z of [-64, -42, -21, 0, 21, 42, 64]) {
-      box(.5, 157, .8, trim, side * 79.15, 80, z);
+      box(1.6, 157, 1.2, trim, side * 79.2, 80, z);
     }
+    // Vertical expansion reveals divide broad cladding fields between the
+    // engaged piers; they continue into the existing horizontal course pattern.
+    for (const z of [-53, -31.5, -10.5, 10.5, 31.5, 53])
+      box(.12, 139, .12, recess, side * 79.06, 87.5, z);
     for (let y = 12; y < 158; y += 8) box(.12, .1, 132, door, side * 79.08, y, 0);
     for (const z of [-53, -31.5, -10.5, 10.5, 31.5, 53]) {
       box(.16, 8, 10, recess, side * 79.14, 8.5, z);
       for (let row = 0; row < 5; row++) box(.24, .4, 9.7, steel, side * 79.25, 5.2 + row * 1.6, z);
+      for (const edge of [-1, 1]) box(.5, 8.6, .25, trim, side * 79.3, 8.5, z + edge * 5.15);
+      box(.85, .4, 10.55, steel, side * 79.4, 12.85, z);
     }
     for (const x of [-77.8, 0, 77.8]) box(1.6, 157, .4, trim, x, 80, side * 67.12);
     box(158, .9, .7, trim, 0, 157.8, side * 67.25);
