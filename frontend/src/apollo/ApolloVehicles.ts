@@ -178,6 +178,12 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     return mesh;
   };
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number): THREE.Mesh => add(new THREE.BoxGeometry(w, h, d), material, x, y, z);
+  const panel = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, radius = .035): void => {
+    const geometry = new THREE.ExtrudeGeometry(roundedShape([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], radius),
+      {depth: d - .012, bevelEnabled: true, bevelThickness: .006, bevelSize: .006, bevelSegments: 1, curveSegments: 3});
+    geometry.translate(0, 0, -(d - .012) / 2);
+    add(geometry, material, x, y, z);
+  };
   const rod = (a: THREE.Vector3, b: THREE.Vector3, radius: number, material: THREE.Material): void => {
     const delta = b.clone().sub(a);
     const mesh = add(new THREE.CylinderGeometry(radius, radius, delta.length(), 6), material);
@@ -310,6 +316,7 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
 
   // Lights, grille, plates, mirrors, handles.
   const noseZ = -fore, tailZ = fore;
+  const rearLampOffset = options.kind === 'van' ? .08 : 0;
   if (spec.lightBar) {
     box(width * 0.72, 0.06, 0.04, headlamp, 0, belt - 0.2, noseZ);
     box(width * 0.7, 0.07, 0.04, taillamp, 0, belt - 0.09, tailZ);
@@ -323,7 +330,11 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
       }
       box(.018,.045,spec.length*.70,chrome,side*(width/2+.005),belt-.17,0);
     }else box(0.36, 0.1, 0.05, headlamp, side * width * 0.36, belt - 0.2, noseZ);
-    box(0.3, 0.12, 0.12, taillamp, side * width * 0.38, belt - 0.1, tailZ);
+    // Recess the lens in a mounted bezel instead of a red block projecting
+    // directly from the tail. The backing reaches into the rounded sheet metal.
+    panel(.32, .16, .11 + rearLampOffset, chrome, side * width * .38, belt - .1, tailZ - .02 + rearLampOffset / 2, .025);
+    panel(.28, .12, .018, trim, side * width * .38, belt - .1, tailZ + .039 + rearLampOffset, .02);
+    panel(.25, .085, .018, taillamp, side * width * .38, belt - .1, tailZ + .053 + rearLampOffset, .018);
     box(0.1, 0.13, 0.2, body, side * (flank(belt + 0.12) + 0.05), belt + 0.12, Z(spec.windshieldBase - 0.2));
     box(0.02, 0.1, 0.16, trim, side * (flank(belt + 0.12) + 0.105), belt + 0.12, Z(spec.windshieldBase - 0.2));
     // Period-correct side marker and a recessed door seam make the flank read as
@@ -337,7 +348,7 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   box(width * 0.5, 0.22, 0.11, trim, 0, gc + 0.34, noseZ + .035);
   for (let i = 0; i < 4; i++) box(width * 0.46, 0.012, 0.045, chrome, 0, gc + 0.27 + i * 0.045, noseZ - 0.002);
   box(0.52, 0.12, 0.03, plate, 0, gc + 0.2, noseZ - 0.015);
-  box(0.52, 0.12, 0.03, plate, 0, gc + 0.38, tailZ + 0.015);
+  if (options.kind !== 'van') box(0.52, 0.12, 0.03, plate, 0, gc + 0.38, tailZ + 0.015);
   box(width * 0.9, 0.1, 0.18, options.periodStyle?chrome:trim, 0, gc + 0.12, -half + 0.03);
   box(width * 0.9, 0.1, 0.18, options.periodStyle?chrome:trim, 0, gc + 0.12, half - 0.03);
   // Windshield blades lie on the sloping glass and connect to their cowl pivots.
@@ -383,18 +394,27 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
   if (options.kind === 'van') {
     // Twin rear service doors, external hinges and a rubber-tread loading step.
     // Generic Kennedy support hardware, not a claim of a specific vehicle replica.
-    const doorTop = top - spec.roofThickness - .06;
+    const doorTop = top - .13, doorBottom = gc + .31;
     const roofSpan = spec.roofFront - spec.roofRear - .2, roofCenter = Z((spec.roofFront + spec.roofRear) / 2);
-    box(.018,doorTop-gc-.28,.018,trim,0,(doorTop+gc+.28)/2,tailZ+.009);
-    box(width*.76,.018,.018,trim,0,gc+.31,tailZ+.009);
+    const doorHeight = doorTop - doorBottom, doorY = (doorTop + doorBottom) / 2;
+    panel(width * .80, doorHeight + .065, .10, trim, 0, doorY, half + .025, .07);
     for (const side of [-1,1]) {
+      const doorX = side * width * .195;
+      panel(width * .38, doorHeight, .115, body, doorX, doorY, half + .055, .055);
+      // Glazed service doors have a rubber surround and inset pane. The top
+      // corners echo the cab windows while the lower stamped field stays solid.
+      const windowY = doorTop - .43;
+      panel(width * .29, .60, .022, trim, doorX, windowY, half + .121, .07);
+      panel(width * .255, .53, .016, glass, doorX, windowY, half + .139, .055);
+      panel(width * .29, .38, .022, body, doorX, doorBottom + .38, half + .12, .035);
       const hingeX = side*width*.36;
       for (const y of [gc+.58,doorTop-.25]) {
-        box(.15,.065,.027,chrome,hingeX,y,tailZ+.025);
-        add(new THREE.CylinderGeometry(.022,.022,.13,8),chrome,hingeX,y,tailZ+.05);
+        box(.15,.065,.035,chrome,hingeX,y,half+.119);
+        add(new THREE.CylinderGeometry(.022,.022,.13,8),chrome,hingeX,y,half+.15);
       }
-      box(.035,.16,.035,chrome,side*.14,belt-.08,tailZ+.04);
-      box(.025,.06,.028,trim,side*.14,belt-.21,tailZ+.04);
+      box(.10,.23,.022,trim,side*.14,belt-.08,half+.123);
+      box(.035,.16,.035,chrome,side*.14,belt-.08,half+.15);
+      box(.025,.06,.028,trim,side*.14,belt-.21,half+.14);
       // Side-door tracks, lower access step, louvred utility compartment.
       box(.022,.025,1.38,chrome,side*(width*.5+.013),belt+.05,.2);
       box(.10,.06,1.05,chrome,side*width*.48,gc+.05,.12);
@@ -402,6 +422,7 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
       box(.035,.035,roofSpan,chrome,side*width*.46*(1-spec.tumblehome),top-.03,roofCenter);
       for(let rib=0;rib<3;rib++)box(.028,.018,roofSpan*.92,body,side*(.24+rib*.14),top+.022,roofCenter);
     }
+    panel(.52, .12, .025, plate, -width * .195, doorBottom + .28, half + .15, .012);
     box(width*.72,.07,.26,chrome,0,gc+.02,half+.13);
     for(let n=0;n<7;n++)box(width*.66,.009,.013,trim,0,gc+.059,half+.025+n*.033);
     // Exhaust tip is recessed above the step instead of a loose tube below ground.
@@ -409,6 +430,18 @@ export function buildCar(spec: CarSpec, options: CarOptions, paint: MaterialFact
     exhaust.rotation.x=Math.PI/2;
     const mouth=add(new THREE.CircleGeometry(.029,10),trim,-width*.34,gc+.02,half+.053);
     mouth.rotation.y=0;
+  } else {
+    // A closed deck lid has its own shut line and latch, rather than the tail
+    // reading as another hood. Sample the existing rear-deck slope exactly.
+    const deck = (x: number, s: number): THREE.Vector3 => {
+      const t = (spec.rearGlassBase - s) / (spec.rearGlassBase + half - .1);
+      return new THREE.Vector3(x, THREE.MathUtils.lerp(beltTop + .02, belt + .04, t) + .037, Z(s));
+    };
+    const innerS = spec.rearGlassBase - .16, outerS = -half + .24;
+    for (const side of [-1, 1]) rod(deck(side * width * .32, innerS), deck(side * width * .32, outerS), .009, trim);
+    rod(deck(-width * .32, outerS), deck(width * .32, outerS), .009, trim);
+    panel(.13, .075, .07, chrome, 0, belt - .06, half + .015, .018);
+    panel(.028, .035, .012, trim, 0, belt - .06, half + .058, .006);
   }
 
   if (options.decal) {
