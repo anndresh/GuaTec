@@ -12,10 +12,10 @@ export function finishApolloMaterial(name: string, material: THREE.MeshStandardM
   const grainScale = terrain ? 30 : concrete ? 90 : brushed ? 220 : 140;
   const grainStrength = concrete ? .055 : .025;
   material.onBeforeCompile = shader => {
-    shader.vertexShader = 'varying vec3 vApolloFinish;\n' + shader.vertexShader.replace('#include <begin_vertex>',
+    shader.vertexShader = 'varying highp vec3 vApolloFinish;\n' + shader.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\nvApolloFinish = position;');
     shader.fragmentShader = /* glsl */`
-      varying vec3 vApolloFinish;
+      varying highp vec3 vApolloFinish;
       float apolloHash(vec3 p) {
         p = fract(p * .1031); p += dot(p, p.yzx + 33.33);
         return fract((p.x + p.y) * p.z);
@@ -34,7 +34,9 @@ export function finishApolloMaterial(name: string, material: THREE.MeshStandardM
       // Fade subpixel grain rather than letting a moving camera produce sparkle.
       vec3 apolloFootprint = fwidth(vApolloFinish) * ${grainScale.toFixed(1)};
       float apolloGrainFade = 1.0 - smoothstep(.3, .95, max(apolloFootprint.x,max(apolloFootprint.y,apolloFootprint.z)));
-      float apolloGrain = (apolloHash(floor(vApolloFinish * ${grainScale.toFixed(1)}))-.5) * apolloGrainFade;
+      // Bound fine-grain inputs before scaling: distant terrain coordinates
+      // must not overflow mediump fragment arithmetic on conservative GPUs.
+      float apolloGrain = (apolloHash(floor(mod(vApolloFinish,256.0) * ${grainScale.toFixed(1)}))-.5) * apolloGrainFade;
       diffuseColor.rgb *= 1.0 + apolloMottle * ${variation.toFixed(3)} + apolloGrain * ${grainStrength.toFixed(3)};
     `);
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', /* glsl */`
@@ -42,7 +44,7 @@ export function finishApolloMaterial(name: string, material: THREE.MeshStandardM
       roughnessFactor = clamp(roughnessFactor + apolloMottle * .10 + apolloGrain * .04,.12,1.0);
     `);
   };
-  material.customProgramCacheKey = () => `apollo-finish-v1-${coarseScale}-${variation}-${grainScale}-${grainStrength}`;
+  material.customProgramCacheKey = () => `apollo-finish-v2-${coarseScale}-${variation}-${grainScale}-${grainStrength}`;
 }
 
 /** Daylight and ground bounce in place of indoor softbox reflections. */

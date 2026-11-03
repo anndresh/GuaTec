@@ -8,7 +8,8 @@ const base=new URL(process.env.APOLLO_QA_URL||'http://127.0.0.1:5196');
 assert.ok(['localhost','127.0.0.1'].includes(base.hostname));
 const phase=process.env.APOLLO_SURFACE_PHASE||'after',out=resolve('artifacts/surface-pass',phase);await mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN||undefined});
-const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],metrics={};
+const conservative=process.env.APOLLO_CONSERVATIVE_RENDERER==='1';
+const page=await browser.newPage({viewport:{width:1440,height:900},...(conservative?{userAgent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'}:{})}),errors=[],metrics={};
 page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('WebSocket'))errors.push(m.text())});
 await page.route('**/surface-acceptance',r=>r.fulfill({contentType:'text/html',body:`
 <style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden}</style><div id="world"></div><script type="module">
@@ -42,6 +43,6 @@ try{
  assert.equal(details.colliders,67);assert.deepEqual(details.assetErrors,[]);assert.equal(details.environmentDisposals,1);assert.equal(details.instancesReleased,true);assert.equal(details.canvasRemaining,false);
  if(phase!=='before'){assert.ok(details.contacts>30);assert.equal(details.contactInstances,true);assert.equal(details.scrubCount,1100);assert.ok(details.finished.includes('stand-painted-enamel'));}
  assert.deepEqual(errors,[]);
- await writeFile(resolve(out,'report.json'),JSON.stringify({phase,metrics,profiles,details,errors},null,2));
+ await writeFile(resolve(out,'report.json'),JSON.stringify({phase,conservative,metrics,profiles,details,errors},null,2));
  console.log('PASS '+phase+': 13 world views, low/high frame samples, 67 proxies, shader compilation and exact environment/instance disposal.');
 }catch(e){await page.screenshot({path:resolve(out,'failure.png')});throw e}finally{await browser.close()}
