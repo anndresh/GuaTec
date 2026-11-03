@@ -476,6 +476,21 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     const cx=-2.13;
     if(kind==='tracking'){
       beveled(.72,.5,.60,paint,cx,1.83,-.32);
+      // The lens turret is bolted to the forward camera casting, closing the
+      // gap between the original film body and its objective barrel.
+      cyl(.23,.17,paint,cx,1.83,-.405,Math.PI/2);
+      for(const dx of[-.145,.145])for(const dy of[-.145,.145])
+        cyl(.018,.024,steel,cx+dx,1.83+dy,-.502,Math.PI/2);
+      box(.52,.085,.42,steel,cx,1.55,-.05);
+      // A raised magazine bridge carries the twin reels. The rear door and
+      // viewfinder give the operator-facing side its own readable massing.
+      for(const dx of[-.20,.20])box(.075,.20,.13,paint,cx+dx,2.10,.025);
+      beveled(.56,.34,.035,dark,cx,1.83,.31);
+      beveled(.48,.27,.028,paint,cx,1.83,.355);
+      handle(cx,1.74,.408,.23,.055);
+      for(const dx of[-.22,.22])cyl(.018,.025,steel,cx+dx,1.92,.402,Math.PI/2);
+      box(.13,.13,.46,paint,cx+.29,2.015,-.06);
+      cyl(.078,.12,dark,cx+.29,2.015,.20,Math.PI/2);
       for(const dx of[-.20,.20]){
         cyl(.22,.13,dark,cx+dx,2.22,.03,Math.PI/2);cyl(.175,.018,steel,cx+dx,2.22,.105,Math.PI/2);
         cyl(.045,.035,copper,cx+dx,2.22,.12,Math.PI/2);
@@ -490,12 +505,47 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       box(.40,.055,.07,dark,cx,2.08,-.27);
     }else{
       for(const dx of[-.29,.29]){box(.07,.52,.12,paint,cx+dx,1.79,-.04);cyl(.125,.08,cream,cx+dx,1.95,-.04,0,Math.PI/2);}
+      box(.65,.075,.12,paint,cx,1.56,-.04);
       cyl(.085,.67,paint,cx,1.95,-.17,Math.PI/2);cyl(.22,.065,cream,cx,1.55,-.05);cyl(.18,.025,dark,cx,1.59,-.05);
+      // A real trunnion crosses both fork bearings and the telescope body.
+      cyl(.052,.67,steel,cx,1.95,-.04,0,Math.PI/2);
+      cyl(.13,.09,paint,cx,1.95,-.06,Math.PI/2);
+      cyl(.067,.21,steel,cx,1.95,.235,Math.PI/2);
+      cyl(.085,.075,dark,cx,1.95,.35,Math.PI/2);
+      cyl(.053,.018,steel,cx,1.95,.394,Math.PI/2);
+      cyl(.042,.020,dark,cx,1.95,.405,Math.PI/2);
+      // Levelling screws visibly sit between the graduated circle and fork.
+      cyl(.21,.06,cream,cx,1.395,-.05);
+      for(let i=0;i<3;i++){
+        const a=i*Math.PI*2/3,x=cx+Math.cos(a)*.15,z=-.05+Math.sin(a)*.15;
+        cyl(.034,.13,steel,x,1.49,z);cyl(.057,.045,dark,x,1.48,z);
+      }
       for(let i=0;i<12;i++){const a=i*Math.PI/6;box(.013,.018,.045,copper,cx+Math.cos(a)*.17,1.61,-.05+Math.sin(a)*.17,a);}
     }
     const lensY=kind==='tracking'?1.83:1.95;
     cyl(.15,.25,dark,cx,lensY,-.60,Math.PI/2);cyl(.17,.035,steel,cx,lensY,-.74,Math.PI/2);cyl(.13,.035,dark,cx,lensY,-.77,Math.PI/2);
+    // Open, tapered lens hood: the mouth stays hollow and its objective is
+    // recessed. A solid cone here would read as a capped pipe from side views.
+    const hoodProfile=[new THREE.Vector2(.142,0),new THREE.Vector2(.188,.16),
+      new THREE.Vector2(.174,.16),new THREE.Vector2(.129,0)];
+    put(new THREE.LatheGeometry(hoodProfile,16),paint,cx,lensY,-.785,-Math.PI/2);
+    put(new THREE.TorusGeometry(.181,.012,6,16),steel,cx,lensY,-.95);
+    cyl(.116,.012,steel,cx,lensY,-.80,Math.PI/2);
+    cyl(.101,.014,dark,cx,lensY,-.81,Math.PI/2);
+    for(const z of[-.53,-.58,-.63])cyl(.159,.022,cream,cx,lensY,z,Math.PI/2);
+    // Focus pinion and ribbed wheel are mounted on a continuous shaft. The
+    // lower pan handle likewise reaches its bearing instead of floating nearby.
+    const focusX=cx+(kind==='tracking'?.43:.39);
+    cyl(.027,.25,steel,focusX-.12,lensY,-.04,0,Math.PI/2);
+    cyl(.09,.065,dark,focusX,lensY,-.04,0,Math.PI/2);
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      box(.072,.026,.026,steel,focusX,lensY+Math.cos(a)*.078,-.04+Math.sin(a)*.078);
+    }
+    cyl(.028,.32,steel,cx+.33,1.7,-.05,0,Math.PI/2);
     cyl(.12,.08,steel,cx+.47,1.7,-.05,0,Math.PI/2);
+    tube([[cx+.47,1.7,-.05],[cx+.47,1.62,.16],[cx+.47,1.48,.36]],.022,steel);
+    tube([[cx+.47,1.48,.36],[cx+.47,1.43,.48]],.038,dark);
     cyl(.06, .62, steel, cx, 1.25, -.05);
     cyl(.17,.07,paint,cx,1.29,-.05);cyl(.12,.065,steel,cx,1.34,-.05);
     for(const dx of[-.19,.19])cyl(.045,.1,dark,cx+dx,1.28,-.05,0,Math.PI/2);
