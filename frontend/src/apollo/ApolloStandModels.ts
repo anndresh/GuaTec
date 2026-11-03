@@ -105,6 +105,11 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, ry = 0) => put(new THREE.BoxGeometry(w, h, d), material, x, y, z, 0, ry);
   const cyl = (r: number, h: number, material: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => put(new THREE.CylinderGeometry(r, r, h, 12), material, x, y, z, rx, 0, rz);
   const tube = (points: number[][], radius: number, material: THREE.Material) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2]))), points.length===2?1:Math.min(18,(points.length-1)*3), radius, 6, false), material, 0, 0, 0);
+  const sideGusset = (x:number,y:number,z:number,rise:number,reach:number,material:THREE.Material,slope=0) => {
+    const profile=new THREE.Shape();profile.moveTo(0,0);profile.lineTo(reach,slope);profile.lineTo(0,-rise);profile.closePath();
+    // Local X becomes station Z: a thin triangular cheek, not a solid console side.
+    put(new THREE.ExtrudeGeometry(profile,{depth:.035,bevelEnabled:false,steps:1}),material,x,y,z,0,-Math.PI/2);
+  };
   const sheet = (cell: number, w: number, h: number, x: number, y: number, z: number, rx = 0, ry = 0) => {
     const geometry = new THREE.PlaneGeometry(w, h), uv = geometry.getAttribute('uv');
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (cell % 4 + .025 + uv.getX(i) * .95) / 4, (3 - Math.floor(cell / 4) + .025 + uv.getY(i) * .95) / 4);
@@ -244,7 +249,15 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   // a lectern, a drafting table or a mobile cart rather than thirteen identical roofs.
   if(design.canopy!=='none'){
     const roofY=design.canopy==='dispatch'?2.95:2.7;
-    for(const x of[-1.88,1.88])box(.065,roofY-.14,.065,steel,x,roofY/2,-1.2);
+    for(const x of[-1.88,1.88]){
+      box(.065,roofY-.14,.065,steel,x,roofY/2,-1.2);
+      // Cantilever arms and knee braces carry the awning without closing the
+      // work side or introducing new feet beyond the existing post proxies.
+      box(.085,.085,1.4,steel,x,roofY-.075,-.85);
+      tube([[x,roofY-.70,-1.2],[x,roofY-.10,-.22]],.027,steel);
+      box(.14,.20,.095,paint,x,roofY-.64,-1.2);
+      for(const y of[roofY-.70,roofY-.58])cyl(.022,.11,dark,x,y,-1.2,Math.PI/2);
+    }
     box(4,.065,1.4,design.canopy==='clerk'?cream:paint,0,roofY,-.85);
     for(let i=0;i<9;i++)box(.025,.08,1.4,steel,-1.84+i*.46,roofY+.04,-.85);
     box(4,.16,.045,dark,0,roofY-.08,-.15);
@@ -277,7 +290,14 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     for(let i=0;i<3;i++){
       const x=-.96+i*.96;meter(x,1.84,-.18,[14,2,15][i]!);knob(x-.18,1.39,-.11,.075);knob(x+.15,1.39,-.11,.05);
       box(.78,.06,.18,dark,x,2.15,-.13);
+      // Deep hoods shade the CRTs; side cheeks and lower lips read at the
+      // exploration camera distance instead of relying on tiny surface marks.
+      for(const dx of[-.37,.37])box(.045,.49,.23,dark,x+dx,1.85,-.08);
+      box(.78,.045,.23,steel,x,1.59,-.08);
     }
+    put(new THREE.BoxGeometry(2.89,.075,.42),paint,0,1.255,.18,-.14);
+    box(2.91,.06,.045,steel,0,1.285,.39);
+    for(const x of[-1.38,1.38])sideGusset(x,1.28,-.02,.13,.42,dark);
     beveled(.73,2.23,.61,dark,2.02,1.31,-.70);
     // Rack ears, repeated fixings and pull handles make the removable modules read.
     for(const x of[1.68,2.36]){
@@ -314,6 +334,12 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     tube([[.85,1.18,-.50],[.84,1.65,-.4],[1.08,1.75,-.2]],.018,steel);cyl(.065,.16,dark,1.12,1.75,-.15,Math.PI/2);
     cyl(.035,3.24,steel,2.25,1.72,-.85);box(1.05,.035,.035,steel,2.25,3.0,-.85);
     for(const dx of[-.38,0,.38])box(.025,.025,.65,steel,2.25+dx,3,-.85);
+    box(.21,.06,.21,paint,2.25,.10,-.85);cyl(.075,.22,dark,2.25,.24,-.85);
+    for(const y of[.45,1.5,2.7]){
+      cyl(.052,.045,dark,2.25,y,-.85);
+      tube([[2.29,y,-.85],[2.29,y-.08,-.85]],.012,steel);
+    }
+    tube([[2.29,2.73,-.85],[2.29,.32,-.85],[1.16,.25,-.63],[.95,1.26,-.64]],.014,dark);
     box(.3,.065,.24,dark,-.7,1.2,.37);box(.18,.045,.08,copper,-.7,1.25,.37);
   } else if (kind === 'cables') {
     // Braced patch frame with two rows of ferrules and cables dropping into a tray.
@@ -342,10 +368,21 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     put(new THREE.BoxGeometry(3.32,.065,1.22),cream,0,1.34,-.02,-.16);
     sheet(13,2.86,1.04,0,1.378,-.025,-Math.PI/2-.16);
     cyl(.038,3.23,steel,0,1.25,.60,0,Math.PI/2);
-    cyl(.065,.64,paper,1.18,1.5,-.37,0,Math.PI/2);cyl(.022,.72,dark,1.18,1.5,-.37,0,Math.PI/2);
+    for(const x of[-1.35,1.35]){
+      // Hinged trestle and locking quadrant join the tilted board to the bench.
+      box(.065,.19,.08,steel,x,1.22,.46);
+      cyl(.065,.11,dark,x,1.28,.46,0,Math.PI/2);
+      sideGusset(x,1.224,-.51,.06,.87,paint,.14);
+      tube([[x,1.19,-.43],[x,1.39,-.32]],.024,steel);
+      cyl(.07,.10,steel,x,1.29,-.375,0,Math.PI/2);
+    }
+    // Straightedge follows the same tilt as the paper and rests on its surface.
+    put(new THREE.BoxGeometry(.045,.025,1.01),copper,-.42,1.389,-.025,-.16);
+    put(new THREE.BoxGeometry(.45,.025,.055),dark,-.42,1.310,-.52,-.16);
+    cyl(.065,.64,paper,1.18,1.382,-.37,0,Math.PI/2);cyl(.022,.72,dark,1.18,1.382,-.37,0,Math.PI/2);
     for(const x of[-2.72,-1.98])box(.04,2.4,.04,steel,x,1.28,-1.03);
     box(.86,.05,.055,steel,-2.35,2.48,-1.03);sheet(13,.74,1.05,-2.35,1.94,-.98);
-    box(.55,.04,.16,copper,-.94,1.45,-.4);box(.21,.10,.15,dark,-1.06,1.52,-.4);
+    box(.55,.04,.16,copper,-.94,1.338,-.4);box(.21,.10,.15,dark,-1.06,1.408,-.4);
   } else if (kind === 'weather') {
     meter(-.5,1.52,-.41,6);meter(.25,1.52,-.41,1);clipboard(-.64,1.18,.22,6);
     cyl(.11,.44,cream,.83,1.4,.05);cyl(.025,.52,steel,.83,1.44,.05);
@@ -365,7 +402,13 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       movingParts.push({node:rotor,axis:'y',speed:1.7,activity:'weather'});
     }else for (let a = 0; a < 3; a++) { const angle = a * Math.PI * 2 / 3; const x = 2.35 + Math.cos(angle) * .65, z = -.72 + Math.sin(angle) * .65; tube([[2.35, 3.86, -.72], [x, 3.86, z]], .025, steel); put(new THREE.SphereGeometry(.14, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), cream, x, 3.86, z, Math.PI / 2, angle); }
     for(let i=0;i<5;i++)box(.59,.035,.52,cream,-2.35,1.25+i*.085,-.55);
+    // Overlapping pitched caps give the louvred shelter a weatherproof roof
+    // silhouette while keeping the same ground support and collision footprint.
     box(.7,.065,.63,cream,-2.35,1.67,-.55);box(.53,.36,.34,dark,-2.35,1.44,-.60);
+    for(const side of[-1,1])put(new THREE.BoxGeometry(.75,.045,.37),cream,-2.35,1.758,-.55+side*.17,side*.29);
+    box(.76,.045,.055,steel,-2.35,1.815,-.55);
+    for(const dx of[-.315,.315])for(let row=0;row<5;row++)
+      put(new THREE.BoxGeometry(.035,.052,.46),cream,-2.35+dx,1.27+row*.077,-.55,0,0,dx>0?-.25:.25);
     // A framed louvred instrument shelter with a hinged access door.
     for(const dx of[-.29,.29])box(.035,.45,.038,paint,-2.35+dx,1.43,-.27);
     for(const dx of[-.21,.21])box(.06,.075,.022,steel,-2.35+dx,1.45,-.235);
@@ -382,6 +425,12 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     }
   } else if(kind==='orientation') {
     beveled(2.55,1.29,.08,dark,0,1.92,-.76);sheet(12,2.39,1.13,0,1.92,-.65);
+    for(const x of[-1.23,1.23]){
+      box(.065,1.42,.085,paint,x,1.85,-.80);
+      sideGusset(x,1.275,-.78,.13,.40,steel);
+    }
+    box(2.63,.08,.10,steel,0,2.60,-.76);
+    box(2.63,.06,.23,paint,0,2.66,-.69);
     cyl(.18,.065,steel,.89,1.23,.24);cyl(.15,.02,cream,.89,1.28,.24);
     box(.015,.025,.25,red,.89,1.30,.24,.45);box(.92,.025,.055,copper,-.34,1.20,.42);
   } else if(kind==='crew') {
@@ -413,6 +462,11 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     }
     // Filing sorter, binder rings, stamp and a gooseneck lamp.
     for (let i = 0; i < 3; i++) { box(.64, .035, .66, dark, -1.1, 1.28 + i * .16, -.4); box(.55, .025, .56, paper, -1.1, 1.31 + i * .16, -.4); }
+    for(const dx of[-.30,.30]){
+      box(.025,.54,.025,steel,-1.1+dx,1.415,-.69);
+      box(.025,.54,.025,steel,-1.1+dx,1.415,-.11);
+      for(let i=0;i<3;i++)box(.025,.055,.66,paint,-1.1+dx,1.29+i*.16,-.4);
+    }
     cyl(.10, .04, dark, 1.28, 1.18, -.33); cyl(.025, .55, copper, 1.28, 1.45, -.33);
     tube([[1.28, 1.72, -.33], [1.28, 1.93, -.33], [1.05, 1.94, -.12], [.98, 1.81, .01]], .025, copper);
     put(new THREE.ConeGeometry(.21, .16, 12, 1, true), paint, .98, 1.75, .01);
