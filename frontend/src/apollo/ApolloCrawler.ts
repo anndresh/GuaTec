@@ -37,8 +37,8 @@ export function buildCrawler(mat: MaterialFactory): THREE.Group {
     x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): void =>
     add(new THREE.BoxGeometry(w, h, d), material, x, y, z, rx, ry, rz);
   const cylinder = (radius: number, height: number, material: THREE.Material,
-    x: number, y: number, z: number, rx = 0, rz = 0): void =>
-    add(new THREE.CylinderGeometry(radius, radius, height, 12), material, x, y, z, rx, 0, rz);
+    x: number, y: number, z: number, rx = 0, rz = 0, segments = 8): void =>
+    add(new THREE.CylinderGeometry(radius, radius, height, segments), material, x, y, z, rx, 0, rz);
   const beam = (a: THREE.Vector3, b: THREE.Vector3, radius: number,
     material: THREE.Material = steel): void => {
     const delta = b.clone().sub(a);
@@ -133,14 +133,31 @@ export function buildCrawler(mat: MaterialFactory): THREE.Group {
         const angle = -Math.atan2(yb - ya, zb - za);
         for (let step = 0; step < count; step++) {
           const t = (step + .5) / count;
-          box(width + .12, .16, length / count * .87, steel, x, ya + (yb - ya) * t, cz + za + (zb - za) * t, angle);
+          // Thicker lower shoes reach the ground plane; the belt shell
+          // retains its clearance above them.
+          box(width + .12, i === 0 ? .32 : .16, length / count * .87, steel, x, ya + (yb - ya) * t, cz + za + (zb - za) * t, angle);
         }
       }
-      for (const dz of [-2.7, -1.35, 0, 1.35, 2.7]) {
-        cylinder(.79, width + .04, enamel, x, 1.65, cz + dz, 0, Math.PI / 2);
+      // Four separate load wheels touch the inner lower belt at y=.68. The
+      // former five overlapping wheels were suspended .18 m above that belt.
+      for (const dz of [-2.4, -.8, .8, 2.4]) {
+        cylinder(.79, width + .04, enamel, x, 1.47, cz + dz, 0, Math.PI / 2, 12);
         for (const side of [-1, 1]) {
-          cylinder(.36, .13, steel, x + side * (width / 2 + .07), 1.65, cz + dz, 0, Math.PI / 2);
-          cylinder(.13, .17, tread, x + side * (width / 2 + .12), 1.65, cz + dz, 0, Math.PI / 2);
+          cylinder(.36, .13, steel, x + side * (width / 2 + .07), 1.47, cz + dz, 0, Math.PI / 2);
+          cylinder(.13, .17, tread, x + side * (width / 2 + .12), 1.47, cz + dz, 0, Math.PI / 2);
+          // Diagonal suspension links meet the visible hub and bogie frame.
+          beam(v(x + side * (width / 2 + .04), 2.28, cz + dz + .28),
+            v(x + side * (width / 2 + .04), 1.47, cz + dz), .055, steel);
+        }
+      }
+      // Upper return rollers contact the inner top belt without intersecting
+      // the road wheels below. Thin end caps show the axle through the opening.
+      for (const dz of [-1.6, 1.6]) {
+        cylinder(.3, width + .02, enamel, x, 2.7, cz + dz, 0, Math.PI / 2);
+        for (const side of [-1, 1]) {
+          cylinder(.1, .08, steel, x + side * (width / 2 + .06), 2.7, cz + dz, 0, Math.PI / 2);
+          beam(v(x + side * (width / 2 + .03), 2.28, cz + dz),
+            v(x + side * (width / 2 + .03), 2.7, cz + dz), .045, enamel);
         }
       }
       // Distinct bogie frame connects the wheels to the steering pedestal.
@@ -182,19 +199,33 @@ export function buildCrawler(mat: MaterialFactory): THREE.Group {
     for (const dx of [-1.4, 1.4]) {
       box(.42, .25, .14, lamp, x + dx, 6.62, z - side * 2.11);
       box(.24, .18, .12, red, x + dx, 6.55, z + side * 2.12);
+      // Wiper arms sit on the outer glazing rather than inside the dark cab.
+      beam(v(x + dx * .5, 6.89, z - side * 2.09),
+        v(x + dx * .5 + .23, 7.57, z - side * 2.09), .018, tread);
+      box(.62, .035, .035, tread, x + dx * .5 + .23, 7.57, z - side * 2.09);
     }
+    for (const dx of [-1.96, 1.96]) {
+      box(.035, .055, 3.9, steel, x + dx, 6.92, z);
+      for (const dz of [-1.7, 1.7]) box(.045, .12, .14, steel, x + dx, 6.67, z + dz);
+    }
+    // Roof drip edge, rear intake grille and panel hinge blocks reuse the
+    // existing eight material batches; none of these details adds a draw call.
+    box(4.12, .06, .09, steel, x, 7.98, z + side * 2.12);
+    box(1.45, .38, .045, tread, x, 6.53, z + side * 2.075);
+    for (let row = 0; row < 4; row++) box(1.35, .035, .045, steel, x, 6.39 + row * .09, z + side * 2.105);
     box(.22, .16, .22, caution, x, 8.18, z);
     // Access stairway runs inboard, entirely inside the original footprint.
     const sx = side * 19.05, sz = side * 3.1;
     for (const dx of [-.65, .65]) {
-      beam(v(sx + dx, .45, sz + 4.4), v(sx + dx, 6.06, sz), .075, ivory);
-      beam(v(sx + dx, 1.4, sz + 4.4), v(sx + dx, 7.0, sz), .055, ivory);
+      beam(v(sx + dx, .07, sz + 4.4), v(sx + dx, 6.06, sz), .075, ivory);
+      beam(v(sx + dx, 1.02, sz + 4.4), v(sx + dx, 7.0, sz), .055, ivory);
+      box(.25, .07, .38, steel, sx + dx, .035, sz + 4.4);
     }
-    for (let i = 0; i < 13; i++) {
-      const t = i / 12;
-      box(1.45, .13, .46, steel, sx, .55 + t * 5.5, sz + 4.4 * (1 - t));
-      if (i % 3 === 0) for (const dx of [-.65, .65])
-        box(.06, .95, .06, ivory, sx + dx, 1.05 + t * 5.5, sz + 4.4 * (1 - t));
+    for (let i = 0; i < 22; i++) {
+      const t = i / 21, y = .07 + t * 5.98;
+      box(1.45, .14, .25, steel, sx, y, sz + 4.4 * (1 - t));
+      if (i % 4 === 0 || i === 21) for (const dx of [-.65, .65])
+        box(.06, .95, .06, ivory, sx + dx, y + .475, sz + 4.4 * (1 - t));
     }
   }
 
@@ -209,6 +240,8 @@ export function buildCrawler(mat: MaterialFactory): THREE.Group {
     mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
     triangles += merged.getAttribute('position').count / 3;
   }
-  root.userData.crawlerModel = { trucks: 4, belts: 8, materials: batches.size, triangles };
+  root.userData.crawlerModel = { trucks: 4, belts: 8, roadWheels: 32, returnRollers: 16,
+    roadWheelRadius: .79, roadWheelCenterHeight: 1.47, innerBeltBottom: .68,
+    roadWheelSpacing: 1.6, materials: batches.size, triangles };
   return root;
 }

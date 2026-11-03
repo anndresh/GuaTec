@@ -93,6 +93,38 @@ test('ground support machinery preserves its footprint and bounded untextured ba
   materials.forEach(material => material.dispose());
 });
 
+test('crawler wheels contact both belt runs and leave gaps between road wheels', () => {
+  const materials = new Map<string, THREE.MeshStandardMaterial>();
+  const model = buildCrawler((name, color, roughness = .8, metalness = 0) => {
+    if (!materials.has(name)) materials.set(name, new THREE.MeshStandardMaterial({color, roughness, metalness}));
+    return materials.get(name)!;
+  });
+  model.updateMatrixWorld(true);
+  const wheels = model.children.find(node => node instanceof THREE.Mesh && node.material === materials.get('crawler'))!;
+  const shoes = model.children.find(node => node instanceof THREE.Mesh && node.material === materials.get('crawler-machined-steel'))!;
+  const ray = new THREE.Raycaster();
+  for (const cx of [-15, 15]) for (const cz of [-12, 12]) for (const lane of [-1.95, 1.95]) {
+    ray.set(new THREE.Vector3(cx + lane, -.1, cz), new THREE.Vector3(0, 1, 0));
+    const ground = ray.intersectObject(shoes, false)[0];
+    assert.ok(ground && Math.abs(ground.point.y) < 1e-5, 'lower track shoes reach the ground plane');
+    for (const dz of [-2.4, -.8, .8, 2.4]) {
+      ray.set(new THREE.Vector3(cx + lane, .6, cz + dz), new THREE.Vector3(0, 1, 0));
+      const contact = ray.intersectObject(wheels, false)[0];
+      assert.ok(contact && Math.abs(contact.point.y - .68) < 1e-5, 'actual load-wheel geometry touches the lower belt');
+    }
+    for (const dz of [-1.6, 1.6]) {
+      ray.set(new THREE.Vector3(cx + lane, 3.01, cz + dz), new THREE.Vector3(0, -1, 0));
+      const contact = ray.intersectObject(wheels, false)[0];
+      assert.ok(contact && Math.abs(contact.point.y - 3) < 1e-5, 'return rollers support the upper run');
+    }
+  }
+  // Cast through a gap at axle height, where the old five-wheel layout overlapped.
+  ray.set(new THREE.Vector3(-22, 1.47, 13.6), new THREE.Vector3(1, 0, 0));
+  assert.equal(ray.intersectObject(wheels, false).length, 0, 'neighbouring road wheels do not intersect');
+  model.traverse(node => { if (node instanceof THREE.Mesh) node.geometry.dispose(); });
+  materials.forEach(material => material.dispose());
+});
+
 test('every stand builds finite human-scale geometry with bounded shared material batches', () => {
   const atlas = new THREE.Texture(), materials = new Map<string,THREE.MeshStandardMaterial>();
   const factory = (name:string,color:number,roughness=.8,metalness=0) => {
