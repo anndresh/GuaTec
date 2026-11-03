@@ -39,7 +39,7 @@ try{
  assert.ok(radioText?.length>150,'Use a real mission dialogue with a long subtitle.');
  for(const [width,height]of [[1440,900],[768,1024],[390,844],[844,390]]){
    await page.setViewportSize({width,height});
-   await page.evaluate(text=>{hudQa.dialogue.clear();hudQa.dialogue.say('Daniel Carter · supervisor ficticio',text,120)},radioText);
+   await page.evaluate(text=>{hudQa.dialogue.clear();hudQa.dialogue.say('Ing. Andrés Lau · supervisor de operaciones',text,120)},radioText);
    await page.waitForTimeout(500);
    const summary=page.locator('.ap-objective-details summary');
    if(!await page.locator('.ap-objective-details').evaluate(el=>el.open))await summary.click();

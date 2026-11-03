@@ -15,7 +15,7 @@ class FakeEngine extends EventTarget {
   getVoices(){this.voiceRequests++;return [
     {name:'Spanish local',lang:'es-ES',localService:true},
     {name:'English narrator',lang:'en-US',localService:true},
-    {name:'English Carter',lang:'en-GB',localService:true},
+    {name:'English Lau',lang:'en-GB',localService:true},
     {name:'French local',lang:'fr-FR',localService:true},
   ];}
   speak(utterance:FakeUtterance){this.queue.push(utterance);}
@@ -38,7 +38,7 @@ test('all voices stay disabled despite saved preferences or enable requests',()=
   for(const preference of ['on','off','']) {
     storage.set('guatec.apollo11.voice',preference);
     const voice=new ApolloVoice();voice.setEnabled(true);voice.setVolume(1);
-    voice.speak('Narración','Narrador');voice.speak('Diálogo','Daniel Carter');
+    voice.speak('Narración','Narrador');voice.speak('Diálogo','Ing. Andrés Lau');
     voice.pause(true);voice.pause(false);voice.stop();voice.dispose();
     assert.equal(voice.enabled,false);assert.equal(voice.isSpeaking,false);
     assert.equal(engine.queue.length,0);assert.equal(engine.voiceRequests,0);

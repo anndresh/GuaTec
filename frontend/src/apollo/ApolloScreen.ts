@@ -313,7 +313,7 @@ export class ApolloScreen implements Screen {
     this.modalKind='welcome';
     const box=this.openModal('APOLLO 11','El comienzo de una nueva era');
     box.append(el('p','','16 de julio de 1969 · Centro Espacial Kennedy, Florida. Eres un técnico de apoyo a operaciones terrestres. Observa, documenta y comunica: tu trabajo termina en un punto seguro, antes del despegue de las 9:32 a. m. EDT.'));
-    box.append(el('p','ap-note','Preséntate en orientación, comprueba el equipo de apoyo y mantén el enlace con Daniel Carter. Permanece en las zonas autorizadas del complejo.'));
+    box.append(el('p','ap-note','Preséntate en orientación, comprueba el equipo de apoyo y mantén el enlace con el Ing. Andrés Lau. Permanece en las zonas autorizadas del complejo.'));
     if(this.state.completed.length || this.state.bonusCompleted.length) box.append(el('p','ap-resume',`Registro recuperado · ${this.state.completed.length + this.state.bonusCompleted.length} de 15 operaciones de historia.`));
     const start=this.button(this.state.done?'Ver epílogo':this.state.completed.length||this.state.bonusCompleted.length||this.state.checks.length?'Continuar misión':'Comenzar operaciones',()=>{
       this.started=true; this.closeModal(); void this.audio.start().catch(()=>this.notify('Audio no disponible; los subtítulos permanecen activos.'));
@@ -418,7 +418,7 @@ export class ApolloScreen implements Screen {
       this.bonusKey='';delete this.standDrafts[id];
       if(this.state.completeBonus(id)) {
         void this.save();this.renderObjective();this.closeModal();this.notify(`STAND COMPLETADO · ${bonus.title}`);
-        const handoff=STAND_HANDOFFS[id];if(handoff)this.dialogue.say('Daniel Carter',handoff.reply,9);
+        const handoff=STAND_HANDOFFS[id];if(handoff)this.dialogue.say('Ing. Andrés Lau',handoff.reply,9);
       }
     },onCancel:()=>this.closeModal()});
   }
@@ -496,11 +496,11 @@ export class ApolloScreen implements Screen {
     } else if(mode==='crew') {
       label=time<24?'TRASLADO DE LA TRIPULACIÓN · 06:27 EDT':'TRANSICIÓN TEMPORAL · 09:30 EDT';
       title=time<24?'EL CAMINO HACIA APOLLO 11':'TRIPULACIÓN A BORDO';
-      text=time<24?'Daniel Carter: «Ahí van. Armstrong, Collins y Aldrin. Después de tantos años de preparación, todo se reduce a este momento.»':'El traslado y el embarque han concluido. Regresamos a los preparativos finales de observación.';
+      text=time<24?'Ing. Andrés Lau: «Ahí van. Armstrong, Collins y Aldrin. Después de tantos años de preparación, todo se reduce a este momento.»':'El traslado y el embarque han concluido. Regresamos a los preparativos finales de observación.';
     } else {
       label='16 JUL 1969 · 09:32 EDT · LC-39A';
       title=time<10?`T − ${String(Math.ceil(10-time)).padStart(2,'0')}`:time<16?'DESPEGUE':'APOLLO 11 · EN ASCENSO';
-      text=time<5?'Daniel Carter: «Atención, estamos entrando en los últimos segundos. Toda la atención está puesta sobre el Saturn V.»':time<10?['Cinco…','Cuatro…','Tres…','Dos…','Uno…'][Math.min(4,Math.floor(time-5))]:time<19?'Daniel Carter: «¡Despegue confirmado!»':'Daniel Carter: «Ahí está. Apollo 11 se dirige hacia el espacio.»';
+      text=time<5?'Ing. Andrés Lau: «Atención, estamos entrando en los últimos segundos. Toda la atención está puesta sobre el Saturn V.»':time<10?['Cinco…','Cuatro…','Tres…','Dos…','Uno…'][Math.min(4,Math.floor(time-5))]:time<19?'Ing. Andrés Lau: «¡Despegue confirmado!»':'Ing. Andrés Lau: «Ahí está. Apollo 11 se dirige hacia el espacio.»';
       this.audio.launch(time,5600);
     }
     let caption=this.movieOverlay.querySelector<HTMLElement>('.ap-cinema-caption');
@@ -509,7 +509,7 @@ export class ApolloScreen implements Screen {
     if(caption.dataset.signature!==signature) {
       caption.dataset.signature=signature;caption.replaceChildren(el('small','',label),el('h1','',title),el('p','',text));
       const voiceKey=`${mode}:${text}`;
-      if(this.movieVoiceKey!==voiceKey){this.movieVoiceKey=voiceKey;this.voice.speak(apolloText(text),mode==='intro'?'Narrador':'Daniel Carter');}
+      if(this.movieVoiceKey!==voiceKey){this.movieVoiceKey=voiceKey;this.voice.speak(apolloText(text),mode==='intro'?'Narrador':'Ing. Andrés Lau');}
     }
     if(time>=(mode==='intro'?36:mode==='crew'?28:60)) this.finishMovie();
   }
@@ -685,7 +685,7 @@ export class ApolloScreen implements Screen {
     box.append(el('p','','Hechos documentados: Apollo 11, Saturn V AS-506, lanzamiento desde 39A el 16 de julio de 1969 a las 09:32 EDT. Traslado de la tripulación a las 06:27 EDT. Epílogo lunar del 20 de julio.'));
     const links=[['NASA · Apollo 11','https://www.nasa.gov/mission/apollo-11/'],['NASA · El día del lanzamiento','https://www.nasa.gov/history/50-years-ago-apollo-11-off-to-the-moon/'],['Mercenary Astronaut · Peter_D · CC BY 4.0','https://sketchfab.com/3d-models/mercenary-astronaut-7fd399d488ae4576a0fc62715892956c'],['Licencia CC BY 4.0','https://creativecommons.org/licenses/by/4.0/']];
     for(const [label,url]of links){const a=el('a','ap-link',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';box.append(a);}
-    box.append(el('p','ap-note','Mercenary Astronaut fue optimizado y escalado por este proyecto. Tres copias representan a Armstrong, Collins y Aldrin, sin atribuirles diálogos. No son retratos ni reproducciones de sus trajes. Saturn V, edificios, vehículos, música y efectos son originales del proyecto. Carter, las tareas y sus registros son ficticios. El terreno y los recorridos están comprimidos. La película muestra el traslado en retrospectiva; la pantalla negra omite el embarque, sin acceso a interiores.'));
+    box.append(el('p','ap-note','Mercenary Astronaut fue optimizado y escalado por este proyecto. Tres copias representan a Armstrong, Collins y Aldrin, sin atribuirles diálogos. No son retratos ni reproducciones de sus trajes. Saturn V, edificios, vehículos, música y efectos son originales del proyecto. Ing. Andrés Lau, las tareas y sus registros son ficticios. El terreno y los recorridos están comprimidos. La película muestra el traslado en retrospectiva; la pantalla negra omite el embarque, sin acceso a interiores.'));
     box.append(this.button('Volver',()=>{this.closeModal();if(this.state.checkpoint===7)this.showEnd();else if(!this.started)this.showWelcome();}));
   }
   private notify(text:string) {

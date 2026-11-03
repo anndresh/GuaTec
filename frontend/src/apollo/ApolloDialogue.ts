@@ -53,7 +53,7 @@ export class ApolloDialogue {
   private render(line:Line) {
     this.host.replaceChildren();this.host.dataset.channel=line.channel;
     const avatar=document.createElement('div');avatar.className='ap-radio-avatar';avatar.setAttribute('aria-hidden','true');
-    avatar.textContent=/narrad|narrat/i.test(line.character)?'◐':/técnico|technic/i.test(line.character)?'TC':'DC';
+    avatar.textContent=/narrad|narrat/i.test(line.character)?'◐':/bombilla/i.test(line.character)?'IB':'AL';
     const content=document.createElement('div');content.className='ap-radio-content';
     const header=document.createElement('div');header.className='ap-radio-header';
     const name=document.createElement('strong');name.textContent=apolloText(line.character);
