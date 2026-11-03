@@ -9,7 +9,8 @@ import {createApolloDaylight, finishApolloMaterial} from './ApolloSurfaceFinish'
 import {createApolloContactShadows, createApolloCoastalScrub} from './ApolloGroundDetail';
 import { apolloText } from './ApolloLocale';
 import { BONUS_CHECKPOINTS, type ApolloBonusCheckpoint } from './ApolloState';
-import { buildStandModel, createStandAtlas, standCollisionProxies, type StandModelKind, type StandMovingPart } from './ApolloStandModels';
+import { buildStandModel, createStandAtlas, standCollisionProxies, type StandModelKind, type StandMovingPart, type StandControlPart } from './ApolloStandModels';
+import {stationControlAngle} from './ApolloStandControls';
 import {SITE_BUILDINGS,SITE_PLOTS,SITE_ROADS,SITE_WALKWAYS,SITE_ZONES,zoneBounds} from './ApolloSiteLayout';
 import {standIndicatorPosition,standUsesPower} from './ApolloStandDesigns';
 import {batchCharacterMeshes} from './ApolloCharacterBatches';
@@ -119,6 +120,9 @@ export class ApolloWorld {
   private bonusAccents: { mesh: THREE.Mesh; phase: number; id: string }[] = [];
   private standAtlas: THREE.CanvasTexture | null = null;
   private movingStandParts:StandMovingPart[]=[];
+  private standControlParts:(StandControlPart&{standId:string})[]=[];
+  private standDrafts:Readonly<Record<string,unknown>>={};
+  private completedStands=new Set<string>();
   private activeStation='';
   private environmentTarget: THREE.WebGLRenderTarget | null = null;
   private coastalScrub: THREE.InstancedMesh | null = null;
@@ -279,11 +283,16 @@ export class ApolloWorld {
     batch.push(g); this.staticBuffers.set(material, batch);
     mesh.geometry.dispose();
   }
-  private addStaticModel(root: THREE.Group): void {
+  private addStaticModel(root: THREE.Group, standId?: string): void {
     root.updateMatrixWorld(true);
     for(const part of (root.userData.movingParts??[]) as StandMovingPart[]){
       this.scene.attach(part.node);this.mergeAuthored(part.node);this.movingStandParts.push(part);
     }
+    for(const part of (root.userData.controlParts??[]) as StandControlPart[]){
+      this.scene.attach(part.node);this.mergeAuthored(part.node);
+      if(standId)this.standControlParts.push({...part,standId});
+    }
+    this.poseStandControls();
     root.traverse(node=>{
       if(!(node instanceof THREE.Mesh)||Array.isArray(node.material))return;
       const geometry=node.geometry.clone().applyMatrix4(node.matrixWorld);
@@ -592,7 +601,7 @@ export class ApolloWorld {
     BONUS_CHECKPOINTS.forEach((bonus, index) => {
       const { x, z } = bonus.target;
       const model = buildStandModel(bonus.kind, (name, color, roughness, metalness) => this.material(name, color, roughness, metalness), atlas, index, true);
-      model.position.set(x, 0, z); this.addStaticModel(model);
+      model.position.set(x, 0, z); this.addStaticModel(model,bonus.id);
       this.colliders.push(...standCollisionProxies(bonus.kind,x,z));
       const indicator=standIndicatorPosition(bonus.kind);
       const accent = new THREE.Mesh(new THREE.SphereGeometry(.065,10,6),new THREE.MeshBasicMaterial({color:0xc99550}));
@@ -894,11 +903,21 @@ export class ApolloWorld {
   }
   setBonusStatus(completed: readonly string[], active?: string): void {
     const done = new Set(completed);
+    this.completedStands=done;this.poseStandControls();
     this.bonusAccents.forEach(({ mesh, id }) => {
       (mesh.material as THREE.MeshBasicMaterial).color.setHex(done.has(id) ? 0x9bc79f : id === active ? 0xf0b45e : 0x536863);
       mesh.userData.active = id === active;
       mesh.userData.completed = done.has(id);
     });
+  }
+  /** Event-driven poses also refresh while an instrument modal suspends time. */
+  setStandDrafts(drafts: Readonly<Record<string,unknown>>): void {
+    this.standDrafts=drafts;this.poseStandControls();
+  }
+  private poseStandControls():void {
+    for(const part of this.standControlParts){
+      part.node.rotation[part.axis]=stationControlAngle(part.channel,this.standDrafts[part.standId],this.completedStands.has(part.standId));
+    }
   }
   nearbyBonus(): { id: string; title: string; objective: string; distance: number } | null {
     let nearest: { bonus: ApolloBonusCheckpoint; distance: number } | null = null;

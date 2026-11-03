@@ -6,6 +6,8 @@ export type {StandModelKind} from './ApolloStandDesigns';
 
 export type StandMaterialFactory = (name: string, color: number, roughness?: number, metalness?: number) => THREE.MeshStandardMaterial;
 export interface StandMovingPart { node:THREE.Group; axis:'y'|'z'; speed:number; activity:'weather'|'tracking' }
+export type StandControlChannel = 'power-lever' | 'power-meter' | 'telemetry-0' | 'telemetry-1' | 'telemetry-2' | 'weather-heading' | 'weather-cloud';
+export interface StandControlPart { node:THREE.Group; axis:'x'|'y'|'z'; channel:StandControlChannel }
 
 /** Ground-plane proxies are kept separate from the visual mesh batches. */
 export function standCollisionProxies(kind: StandModelKind, x: number, z: number): {x:number;z:number;w:number;d:number}[] {
@@ -47,7 +49,6 @@ export function createStandAtlas(): THREE.CanvasTexture {
         const a = Math.PI + tick * Math.PI / 10;
         c.beginPath(); c.moveTo(128 + Math.cos(a) * 69, 151 + Math.sin(a) * 69); c.lineTo(128 + Math.cos(a) * 79, 151 + Math.sin(a) * 79); c.stroke();
       }
-      c.strokeStyle = '#af4a34'; c.lineWidth = 4; c.beginPath(); c.moveTo(128, 154); c.lineTo(151, 94); c.stroke();
       c.fillStyle = '#34433b'; c.font = '12px monospace'; c.fillText(index === 6 ? 'RANGE WX' : index === 1 ? '28 V DC' : 'S-BAND', 92, 178);
     } else if (index === 3) {
       // Isolated label tiles for physical terminals, legible without color cues.
@@ -86,8 +87,10 @@ export function createStandAtlas(): THREE.CanvasTexture {
 export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory, atlas: THREE.Texture, index: number, animated = false): THREE.Group {
   const root = new THREE.Group(); root.name = `apollo-stand-${kind}`;
   const movingParts:StandMovingPart[]=[];root.userData.movingParts=movingParts;
+  const controlParts:StandControlPart[]=[];root.userData.controlParts=controlParts;
   const design=STAND_DESIGNS[kind];root.userData.silhouette=design.silhouette;
   const batches = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  let destination = batches;
   const paint = mat('stand-painted-enamel', 0x627c73, .57, .12);
   const cream = mat('stand-ivory-enamel', 0xd5ceaf, .65, .05);
   const steel = mat('stand-brushed-steel', 0x879b99, .36, .78);
@@ -97,10 +100,24 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   const paper = mat('stand-paper', 0xdad1b4, .94);
   const copper = mat('stand-copper', 0xa77951, .47, .68);
   const display = mat('stand-instrument-atlas', 0xffffff, .65, .05); display.map = atlas;
+  const controlled = (channel:StandControlChannel|undefined,axis:StandControlPart['axis'],pivot:THREE.Vector3,draw:()=>void):void => {
+    if(!animated||!channel){draw();return;}
+    const previous=destination,parts=new Map<THREE.Material,THREE.BufferGeometry[]>();destination=parts;
+    try{draw();}finally{destination=previous;}
+    const node=new THREE.Group();node.name=`stand-control-${channel}`;node.position.copy(pivot);
+    for(const[material,geometries]of parts){
+      const geometry=mergeGeometries(geometries,false);
+      geometries.forEach(part=>part.dispose());
+      if(!geometry)throw new Error(`Could not batch stand control ${channel}`);
+      geometry.translate(-pivot.x,-pivot.y,-pivot.z);geometry.computeBoundingSphere();
+      const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;node.add(mesh);
+    }
+    root.add(node);controlParts.push({node,axis,channel});
+  };
   const put = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
     const transform = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(1, 1, 1));
     const nonIndexed = geometry.index ? geometry.toNonIndexed() : geometry.clone(); nonIndexed.applyMatrix4(transform); geometry.dispose();
-    const list = batches.get(material) ?? []; list.push(nonIndexed); batches.set(material, list);
+    const list = destination.get(material) ?? []; list.push(nonIndexed); destination.set(material, list);
   };
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, ry = 0) => put(new THREE.BoxGeometry(w, h, d), material, x, y, z, 0, ry);
   const cyl = (r: number, h: number, material: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => put(new THREE.CylinderGeometry(r, r, h, 12), material, x, y, z, rx, 0, rz);
@@ -110,10 +127,23 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     // Local X becomes station Z: a thin triangular cheek, not a solid console side.
     put(new THREE.ExtrudeGeometry(profile,{depth:.035,bevelEnabled:false,steps:1}),material,x,y,z,0,-Math.PI/2);
   };
-  const sheet = (cell: number, w: number, h: number, x: number, y: number, z: number, rx = 0, ry = 0) => {
+  const sheet = (cell: number, w: number, h: number, x: number, y: number, z: number, rx = 0, ry = 0, channel?:StandControlChannel) => {
     const geometry = new THREE.PlaneGeometry(w, h), uv = geometry.getAttribute('uv');
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (cell % 4 + .025 + uv.getX(i) * .95) / 4, (3 - Math.floor(cell / 4) + .025 + uv.getY(i) * .95) / 4);
     put(geometry, display, x, y, z, rx, ry);
+    if(cell===1||cell===6){
+      // All analogue scales use one physical needle, including clipboard and
+      // portable-meter copies of the atlas cells. No printed needle survives
+      // behind a controlled pointer. The pivot matches pixel (128,154).
+      const pivotY=h*(.5-154/256)/.95,length=h*60/256/.95;
+      const plane=new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx,ry,0));plane.setPosition(x,y,z);
+      const pivot=new THREE.Vector3(0,pivotY,.009).applyMatrix4(plane);
+      controlled(channel,'z',pivot,()=>{
+        const needle=new THREE.BoxGeometry(w*.016,h*60/256/.95,.005);
+        needle.translate(0,pivotY+length/2,.009);needle.applyMatrix4(plane);put(needle,red,0,0,0);
+        const hub=new THREE.CircleGeometry(w*.021,8);hub.translate(0,pivotY,.013);hub.applyMatrix4(plane);put(hub,dark,0,0,0);
+      });
+    }
   };
   const terminalLabel=(letter:typeof CABLE_CHANNELS[number],x:number,y:number)=>{
     const geometry=new THREE.PlaneGeometry(.17,.20),uv=geometry.getAttribute('uv'),column=CABLE_CHANNELS.indexOf(letter);
@@ -127,16 +157,18 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
     put(new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 1, steps: 1, curveSegments: 3 }), material, x, y, z);
   };
-  const meter = (x: number, y: number, z: number, cell = 1) => { beveled(.63, .53, .1, dark, x, y, z); sheet(cell, .54, .45, x, y, z + .128); };
-  const knob = (x: number, y: number, z: number, r = .08) => {
+  const meter = (x: number, y: number, z: number, cell = 1, channel?:StandControlChannel) => { beveled(.63, .53, .1, dark, x, y, z); sheet(cell, .54, .45, x, y, z + .128,0,0,channel); };
+  const knob = (x: number, y: number, z: number, r = .08, channel?:StandControlChannel) => {
     // A mounting washer, radial grip flutes and a raised index, all in existing batches.
     cyl(r * 1.16, .018, steel, x, y, z - .045, Math.PI / 2);
-    cyl(r, .095, dark, x, y, z, Math.PI / 2);
-    for(let i=0;i<12;i++){
-      const a=i*Math.PI/6;
-      put(new THREE.BoxGeometry(r*.18,r*.28,.074),dark,x+Math.sin(a)*r,y+Math.cos(a)*r,z,0,0,-a);
-    }
-    box(r*.17,r*.7,.012,cream,x,y+r*.3,z+.052);
+    controlled(channel,'z',new THREE.Vector3(x,y,z),()=>{
+      cyl(r, .095, dark, x, y, z, Math.PI / 2);
+      for(let i=0;i<12;i++){
+        const a=i*Math.PI/6;
+        put(new THREE.BoxGeometry(r*.18,r*.28,.074),dark,x+Math.sin(a)*r,y+Math.cos(a)*r,z,0,0,-a);
+      }
+      box(r*.17,r*.7,.012,cream,x,y+r*.3,z+.052);
+    });
   };
   const handle = (x:number,y:number,z:number,w=.34,h=.10) => {
     // Raised bail leaves an actual gap behind the grip instead of a solid bar.
@@ -271,14 +303,21 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   cyl(.075,.10,dark,indicator.x,1.23,indicator.z);cyl(.085,.025,steel,indicator.x,1.29,indicator.z);
   if (kind === 'sequence') {
     // Vertical switchboard, ceramic cartridges, knife-switch grip and vented transformer.
-    beveled(2.6,1.22,.24,paint,-.12,1.85,-.65);meter(-.86,2.06,-.38,1);
+    beveled(2.6,1.22,.24,paint,-.12,1.85,-.65);meter(-.86,2.06,-.38,1,'power-meter');
     box(1.1,.10,.07,copper,.48,2.24,-.35);box(1.1,.10,.07,copper,.48,1.6,-.35);
     for(let i=0;i<4;i++){
       const x=-.37+i*.36;
       cyl(.05,.33,cream,x,1.9,-.27);cyl(.066,.06,copper,x,1.73,-.27);cyl(.066,.06,copper,x,2.07,-.27);
       for(let ring=0;ring<3;ring++)cyl(.057,.014,steel,x,1.82+ring*.055,-.27);
     }
-    cyl(.07,.10,steel,1.02,1.83,-.3,Math.PI/2);cyl(.025,.43,steel,.92,2.0,-.18,0,-.48);cyl(.065,.20,red,.82,2.20,-.18,0,Math.PI/2);
+    cyl(.07,.14,steel,1.02,1.83,-.3,0,Math.PI/2);
+    controlled('power-lever','x',new THREE.Vector3(1.02,1.83,-.3),()=>{
+      // The offset operating arm clears the switchboard in both the upright
+      // engaged pose and the .65 rad lowered disengaged pose supplied by the world.
+      tube([[1.02,1.83,-.3],[1.02,1.83,-.01]],.025,steel);
+      cyl(.025,.29,steel,1.02,1.975,-.01);
+      cyl(.065,.20,red,1.02,2.12,-.01,0,Math.PI/2);
+    });
     beveled(.68,1.35,.65,paint,2.12,.85,-.64);
     caseHardware(.68,1.35,.65,2.12,.85,-.64);
     for(let i=0;i<7;i++)box(.51,.025,.025,dark,2.12,.42+i*.14,.04);
@@ -288,7 +327,7 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     // Three recessed CRT faces, control shelf and a full-height tape/data rack.
     beveled(2.95,.95,.45,paint,0,1.72,-.66);
     for(let i=0;i<3;i++){
-      const x=-.96+i*.96;meter(x,1.84,-.18,[14,2,15][i]!);knob(x-.18,1.39,-.11,.075);knob(x+.15,1.39,-.11,.05);
+      const x=-.96+i*.96;meter(x,1.84,-.18,[14,2,15][i]!);knob(x-.18,1.39,-.11,.075,`telemetry-${i}` as StandControlChannel);knob(x+.15,1.39,-.11,.05);
       box(.78,.06,.18,dark,x,2.15,-.13);
       // Deep hoods shade the CRTs; side cheeks and lower lips read at the
       // exploration camera distance instead of relying on tiny surface marks.
@@ -384,7 +423,7 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     box(.86,.05,.055,steel,-2.35,2.48,-1.03);sheet(13,.74,1.05,-2.35,1.94,-.98);
     box(.55,.04,.16,copper,-.94,1.338,-.4);box(.21,.10,.15,dark,-1.06,1.408,-.4);
   } else if (kind === 'weather') {
-    meter(-.5,1.52,-.41,6);meter(.25,1.52,-.41,1);clipboard(-.64,1.18,.22,6);
+    meter(-.5,1.52,-.41,6,'weather-cloud');meter(.25,1.52,-.41,1);clipboard(-.64,1.18,.22,6);
     cyl(.11,.44,cream,.83,1.4,.05);cyl(.025,.52,steel,.83,1.44,.05);
     tube([[.82,1.18,.15],[.95,1.24,.4],[.55,1.22,.50],[.38,1.24,.24]],.018,red);
     cyl(.045, 3.9, steel, 2.35, 2.05, -.72); cyl(.16, .18, dark, 2.35, 3.8, -.72);
@@ -392,6 +431,15 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     box(.42,.06,.42,steel,2.35,.10,-.72);
     for(const dx of[-.14,.14])for(const dz of[-.14,.14])cyl(.024,.08,dark,2.35+dx,.17,-.72+dz);
     for(const y of[.25,1.4,2.6])cyl(.065,.05,dark,2.35,y,-.72);
+    cyl(.075,.09,steel,2.35,3.36,-.72);
+    controlled('weather-heading','y',new THREE.Vector3(2.35,3.36,-.72),()=>{
+      // North at zero is -Z. The vane runs half a metre below the cup rotor,
+      // so heading changes remain independent of the existing anemometer joint.
+      box(.035,.035,.75,steel,2.35,3.36,-.745);
+      const arrow=new THREE.Shape();arrow.moveTo(-.12,0);arrow.lineTo(.12,0);arrow.lineTo(0,.22);arrow.closePath();
+      put(new THREE.ExtrudeGeometry(arrow,{depth:.018,bevelEnabled:false}),paint,2.35,3.36,-1.08,-Math.PI/2);
+      box(.22,.08,.18,paint,2.35,3.36,-.44);
+    });
     if(animated){
       const rotor=new THREE.Group();rotor.name='weather-anemometer-rotor';rotor.position.set(2.35,3.86,-.72);root.add(rotor);
       for(let a=0;a<3;a++){

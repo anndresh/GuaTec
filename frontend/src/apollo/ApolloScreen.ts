@@ -353,6 +353,7 @@ export class ApolloScreen implements Screen {
     this.hud.append(details,...(nextStand?[nextStand]:[]));
     this.world?.setTarget(this.state.done?null:(this.state.requiredStand?.target ?? cp.target));
     this.world?.setBonusStatus(this.state.bonusCompleted, this.state.requiredStand?.id);
+    this.world?.setStandDrafts(this.standDrafts);
     this.world?.setStationStatus(this.state.completed,cp.id);
     const mapButton=this.root.querySelector<HTMLElement>('.ap-minimap');
     mapButton?.setAttribute('aria-label',apolloText('Abrir mapa de Kennedy'));
@@ -412,7 +413,7 @@ export class ApolloScreen implements Screen {
     this.world.setStandFocus(bonus.target);
     this.bonusKey=id;
     this.bonusMission=mountBonusMission(box,bonus,{draft:this.standDrafts[id],onDraft:draft=>{
-      this.standDrafts[id]=draft;clearTimeout(this.draftTimer);this.draftTimer=window.setTimeout(()=>void this.save(),450);
+      this.standDrafts[id]=draft;this.world.setStandDrafts(this.standDrafts);clearTimeout(this.draftTimer);this.draftTimer=window.setTimeout(()=>void this.save(),450);
     },onFeedback:kind=>this.audio.bonusFeedback(kind),onComplete:()=>{
       this.bonusMission?.dispose(); this.bonusMission=null;
       this.bonusKey='';delete this.standDrafts[id];
