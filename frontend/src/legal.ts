@@ -78,15 +78,16 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Política de privacidad",
+        lastUpdated: "Última actualización: 7 de noviembre de 2026",
         introduction:
-          "Esta política explica qué datos se procesan cuando creas una cuenta, accedes a GuaTec o guardas tu avance; para qué se usan y cómo puedes ejercer tus derechos.",
+          "Esta política describe los datos tratados al usar GuaTec, incluido el acceso de Invitado y el guardado de Apollo 11, sus finalidades y las opciones para consultar o eliminar tu información.",
         sections: [
           {
             title: "1. Datos que se procesan",
             paragraphs: [
-              "Según la forma de acceso elegida, se procesa la dirección de correo electrónico y una contraseña almacenada únicamente como hash; o los datos de cuenta, identificador y, si está disponible, nombre e imagen de perfil recibidos de Google o GitHub. El acceso de invitado crea un perfil seudónimo. También puedes elegir un nombre de usuario.",
-              "Para que GuaTec funcione y guarde tu avance, se procesan tu identificador de cuenta, el estado guardado de las misiones, decisiones, recursos, muestras, resultados e indicadores de uso de la simulación, así como fechas de inicio o finalización cuando se generan.",
-              "El navegador guarda localmente el idioma, el nombre de usuario en caché, un token de acceso de duración limitada y, durante el alta mediante OAuth, temporalmente el correo pendiente. La plataforma de alojamiento puede generar registros técnicos de solicitudes, como dirección IP, fecha, navegador y errores.",
+              "Según el método de acceso disponible que elijas, se trata tu correo electrónico y una contraseña almacenada como hash, o el correo, identificador del proveedor y URL de la imagen de perfil recibidos de Google o GitHub. También se guardan el identificador interno de la cuenta, tu nombre de usuario y las fechas de creación y actualización. Invitado crea un perfil seudónimo en el servidor sin exigirte correo ni contraseña; no significa que la actividad carezca de un identificador.",
+              "El progreso se vincula a tu perfil. En Apollo 11 incluye el estado de la misión, operaciones y comprobaciones completadas, tiempo de juego, borradores y respuestas de los instrumentos, informes y fechas de guardado. Otras funciones de la simulación pueden conservar decisiones, recursos, inventario, muestras y estadísticas cuando se utilizan. No incluyas información personal o sensible en respuestas ni borradores.",
+              "El navegador conserva el idioma, el nombre de usuario en caché, un token de acceso de duración limitada y, durante el alta con Google o GitHub, el correo pendiente. Apollo 11 guarda además una copia local del progreso y los borradores asociada al identificador de tu perfil, que intenta sincronizar con el servidor. Puede haber preferencias de calidad gráfica y una selección de fondo durante la sesión. Los servicios de alojamiento pueden tratar datos técnicos de conexión y registros de solicitudes o errores.",
             ],
           },
           {
@@ -99,21 +100,22 @@ const copy: Record<Language, LegalCopy> = {
           {
             title: "3. Proveedores y transferencias",
             paragraphs: [
-              "GuaTec usa Vercel para servir el sitio y ejecutar la API, y Supabase/PostgreSQL para almacenar los datos si se habilita la conexión de producción. Google o GitHub reciben solicitudes cuando eliges uno de esos métodos de acceso y tratan esos datos bajo sus propias políticas. La API puede consultar servicios públicos de NASA para material e información espacial; esas solicitudes no necesitan enviar a NASA tu contraseña ni tu progreso. Si el navegador carga recursos alojados por terceros, dichos proveedores pueden recibir los datos técnicos habituales de la conexión.",
+              "El sitio se sirve desde Vercel y la API del despliegue actual se aloja en Render. Las cuentas y los avances se almacenan en la base de datos asociada al servicio de API. Google o GitHub intervienen cuando eliges un acceso disponible con esos proveedores. La API puede consultar servicios públicos de NASA para obtener material espacial sin necesitar tu contraseña ni tu progreso. Al abrir enlaces externos, como LinkedIn, Instagram o recursos educativos, accedes a servicios con sus propias políticas de privacidad.",
               "Estos proveedores pueden tratar información en los países donde operan sus centros de datos. Consulta sus políticas y configuraciones para conocer sus ubicaciones, condiciones de transferencia y plazos de conservación.",
             ],
           },
           {
             title: "4. Almacenamiento y conservación",
             paragraphs: [
-              "El token y otras preferencias de GuaTec se guardan en el almacenamiento local del navegador, no en una cookie de seguimiento. El token permite utilizar la sesión y caduca conforme a la configuración del servidor. Puedes cerrar sesión para borrar el token y eliminar los datos locales del navegador; eso no borra el avance que ya está guardado en el servidor.",
-              "Los registros y avances vinculados a tu cuenta se conservan mientras la cuenta siga activa o sean necesarios para prestar el servicio. Para pedir su eliminación, escribe al correo de contacto desde la dirección asociada a la cuenta e indica tu nombre de usuario. Se verificará la solicitud y se eliminarán los datos que puedan borrarse, salvo los que deban conservarse por seguridad, obligaciones legales o copias de respaldo durante su ciclo normal.",
+              "El token, las preferencias y la copia local de Apollo 11 se guardan en el almacenamiento del navegador. Cerrar sesión elimina el token, pero no borra automáticamente las preferencias, las copias locales ni el progreso del servidor. Puedes borrar los datos del sitio desde el navegador; esto elimina las copias locales de ese navegador, pero no los registros del servidor. El acceso con Google o GitHub puede utilizar una cookie técnica de sesión para verificar el proceso de autenticación; no es una cookie de publicidad.",
+              "Los registros y avances se conservan mientras la cuenta siga activa o sean necesarios para prestar el servicio, y cuando deban mantenerse por seguridad u obligaciones legales. La configuración y las políticas de los proveedores determinan la conservación de sus registros técnicos y copias de respaldo. No hay eliminación automática de la cuenta por cerrar sesión. Si usas Invitado, perder el token o borrar los datos del navegador puede impedir recuperar el acceso; conserva la sesión mientras solicitas ayuda.",
             ],
           },
           {
             title: "5. Tus derechos y consultas",
             paragraphs: [
-              "Según la legislación aplicable, puedes solicitar acceso, corrección, eliminación, portabilidad o limitación del tratamiento, oponerte al tratamiento y retirar un consentimiento. También puedes presentar una reclamación ante la autoridad de protección de datos competente. Para ejercer estos derechos o reportar una preocupación de privacidad, ponte en contacto mediante los canales siguientes.",
+              "Según la legislación aplicable, puedes solicitar acceso, corrección, eliminación, portabilidad o limitación del tratamiento, oponerte al tratamiento y retirar un consentimiento cuando corresponda. También puedes acudir a la autoridad de protección de datos competente. El contacto de privacidad de GuaTec es Andrés Sánchez Pérez: anndreesh@icloud.com. Encontrarás sus canales en la pestaña Contacto.",
+              "Para solicitar acceso, corrección o eliminación, escribe a ese correo indicando tu nombre de usuario y la petición. Si tu cuenta tiene un correo asociado, úsalo para contactar. Si eres Invitado, indica que tu perfil no tiene correo; se acordará una comprobación proporcional de la titularidad antes de modificar o entregar datos. No envíes contraseñas ni tokens. El borrado en el servidor no elimina las copias locales de tus dispositivos; borra también los datos del sitio en cada navegador.",
             ],
           },
           {
@@ -225,15 +227,16 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Privacy policy",
+        lastUpdated: "Last updated: November 7, 2026",
         introduction:
-          "This policy explains what data is processed when you create an account, sign in to GuaTec, or save your progress; why it is used and how you can exercise your rights.",
+          "This policy describes the data processed when using GuaTec, including Guest access and Apollo 11 saves, why it is used, and how to request access to or deletion of your information.",
         sections: [
           {
             title: "1. Data we process",
             paragraphs: [
-              "Depending on how you sign in, we process your email address and a password stored only as a hash; or account details, provider identifier and, when available, profile name and image received from Google or GitHub. Guest access creates a pseudonymous profile. You may also choose a username.",
-              "To operate GuaTec and save your progress, we process your account identifier, saved mission progress and state, decisions, resources, samples, results and simulation usage metrics, together with start or completion dates when generated.",
-              "Your browser stores the language, a cached username, a time-limited access token and, during OAuth sign-up, the pending email address temporarily. The hosting platform may generate technical request logs such as IP address, date, browser information and errors.",
+              "Depending on the available sign-in method you choose, we process your email address and a password stored as a hash, or the email address, provider identifier and profile image URL received from Google or GitHub. We also store your internal account identifier, username, and creation and update dates. Guest access creates a pseudonymous server profile without requiring an email or password; it does not mean your activity has no identifier.",
+              "Progress is linked to your profile. In Apollo 11 it includes mission state, completed operations and checks, play time, instrument drafts and answers, reports and save timestamps. Other simulation features may store decisions, resources, inventory, samples and statistics when used. Do not enter personal or sensitive information in answers or drafts.",
+              "Your browser stores the language, a cached username, a time-limited access token and, during Google or GitHub sign-up, the pending email address. Apollo 11 also stores a local copy of progress and drafts linked to your profile identifier and attempts to synchronize it with the server. Graphics quality preferences and a background selection for the session may also be stored. Hosting services may process technical connection data and request or error logs.",
             ],
           },
           {
@@ -246,21 +249,22 @@ const copy: Record<Language, LegalCopy> = {
           {
             title: "3. Providers and transfers",
             paragraphs: [
-              "GuaTec uses Vercel to serve the site and run the API, and Supabase/PostgreSQL to store data if the production database is enabled. Google or GitHub receive requests when you choose one of those sign-in methods and process data under their own policies. The API may request public NASA services for space-related material and information; those requests do not require sending NASA your password or progress. If your browser loads third-party-hosted resources, those providers may receive ordinary technical connection data.",
+              "Vercel serves the site, and Render hosts the API for the current deployment. Accounts and progress are stored in the database associated with the API service. Google or GitHub are involved when you choose an available sign-in method with those providers. The API may request public NASA services for space-related material without needing your password or progress. Opening external links, such as LinkedIn, Instagram or educational resources, takes you to services with their own privacy policies.",
               "These providers may process information in the countries where their data centers operate. Consult their policies and configuration to learn their locations, transfer terms and retention periods.",
             ],
           },
           {
             title: "4. Storage and retention",
             paragraphs: [
-              "The access token and other GuaTec preferences are saved in your browser's local storage, not in a tracking cookie. The token enables your session and expires according to the server configuration. You can sign out to remove the token and clear local browser data; this does not delete progress already saved on the server.",
-              "Records and progress linked to your account are retained while your account is active or as needed to provide the service. To request deletion, email the contact address from the email linked to your account and provide your username. We will verify the request and delete data that can be erased, except data that must be kept for security, legal obligations or backups during their normal lifecycle.",
+              "The token, preferences and local Apollo 11 copy are saved in browser storage. Signing out removes the token but does not automatically delete preferences, local copies or server progress. You can clear site data in your browser; this removes local copies in that browser but does not delete server records. Google or GitHub sign-in may use a technical session cookie to verify the authentication flow; it is not an advertising cookie.",
+              "Records and progress are retained while your account is active or needed to provide the service, and where required for security or legal obligations. Provider settings and policies determine retention of their technical logs and backups. Signing out does not automatically delete your account. If you use Guest access, losing the token or clearing browser data may prevent you from recovering access; keep your session while requesting help.",
             ],
           },
           {
             title: "5. Your rights and questions",
             paragraphs: [
-              "Depending on applicable law, you may request access, correction, deletion, portability or restriction of processing; object to processing; or withdraw consent. You may also lodge a complaint with the competent data protection authority. Use the contact channels below to exercise these rights or report a privacy concern.",
+              "Depending on applicable law, you may request access, correction, deletion, portability or restriction of processing, object to processing, or withdraw consent where applicable. You may also contact the competent data protection authority. The GuaTec privacy contact is Andrés Sánchez Pérez: anndreesh@icloud.com. His channels are listed in the Contact tab.",
+              "To request access, correction or deletion, email that address with your username and request. If your account has a linked email address, use it to contact us. If you are a Guest, state that your profile has no email; an appropriate ownership check will be arranged before changing or disclosing data. Do not send passwords or tokens. Server deletion does not remove local copies on your devices; also clear site data in each browser.",
             ],
           },
           {
@@ -372,15 +376,16 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Politique de confidentialité",
+        lastUpdated: "Dernière mise à jour : 7 novembre 2026",
         introduction:
-          "Cette politique explique quelles données sont traitées lorsque vous créez un compte, vous connectez à GuaTec ou sauvegardez votre progression, pourquoi elles sont utilisées et comment exercer vos droits.",
+          "Cette politique décrit les données traitées lors de l’utilisation de GuaTec, y compris l’accès Invité et les sauvegardes d’Apollo 11, leurs finalités et les moyens de demander l’accès à vos informations ou leur suppression.",
         sections: [
           {
             title: "1. Données traitées",
             paragraphs: [
-              "Selon votre mode de connexion, nous traitons votre adresse e-mail et un mot de passe stocké uniquement sous forme de hachage ; ou les données de compte, l'identifiant fournisseur et, lorsqu'ils sont disponibles, le nom et l'image de profil transmis par Google ou GitHub. L'accès invité crée un profil pseudonyme. Vous pouvez également choisir un nom d'utilisateur.",
-              "Pour faire fonctionner GuaTec et sauvegarder votre progression, nous traitons votre identifiant de compte, votre progression et l'état sauvegardé des missions, les décisions, ressources, échantillons, résultats et indicateurs d'utilisation de la simulation, ainsi que les dates de début ou de fin lorsqu'elles sont générées.",
-              "Votre navigateur stocke la langue, un nom d'utilisateur en cache, un jeton d'accès à durée limitée et, lors de l'inscription par OAuth, temporairement l'adresse e-mail en attente. L'hébergeur peut produire des journaux techniques de requêtes, tels que l'adresse IP, la date, les informations du navigateur et les erreurs.",
+              "Selon le mode de connexion disponible choisi, nous traitons votre adresse e-mail et un mot de passe stocké sous forme de hachage, ou l’adresse e-mail, l’identifiant fournisseur et l’URL de l’image de profil transmis par Google ou GitHub. Nous conservons aussi votre identifiant interne, votre nom d’utilisateur et les dates de création et de mise à jour. L’accès Invité crée un profil pseudonyme sur le serveur sans exiger d’e-mail ni de mot de passe ; votre activité reste associée à un identifiant.",
+              "La progression est liée à votre profil. Dans Apollo 11, elle comprend l’état de la mission, les opérations et vérifications terminées, le temps de jeu, les brouillons et réponses des instruments, les rapports et les dates de sauvegarde. D’autres fonctions peuvent conserver des décisions, ressources, éléments d’inventaire, échantillons et statistiques lorsqu’elles sont utilisées. Ne saisissez pas de données personnelles ou sensibles dans les réponses et brouillons.",
+              "Votre navigateur conserve la langue, un nom d’utilisateur en cache, un jeton d’accès à durée limitée et, pendant l’inscription avec Google ou GitHub, l’adresse e-mail en attente. Apollo 11 conserve aussi une copie locale de la progression et des brouillons liée à votre identifiant de profil, et tente de la synchroniser avec le serveur. Des préférences graphiques et un choix de fond pour la session peuvent également être stockés. Les hébergeurs peuvent traiter des données techniques de connexion et des journaux de requêtes ou d’erreurs.",
             ],
           },
           {
@@ -393,21 +398,22 @@ const copy: Record<Language, LegalCopy> = {
           {
             title: "3. Prestataires et transferts",
             paragraphs: [
-              "GuaTec utilise Vercel pour servir le site et exécuter l'API, et Supabase/PostgreSQL pour stocker les données si la base de production est activée. Google ou GitHub reçoivent des requêtes lorsque vous choisissez l'une de ces méthodes de connexion et traitent les données selon leurs propres politiques. L'API peut interroger les services publics de la NASA pour obtenir des ressources et informations spatiales ; ces requêtes ne nécessitent pas de transmettre à la NASA votre mot de passe ou votre progression. Si votre navigateur charge des ressources hébergées par des tiers, ces prestataires peuvent recevoir les données techniques habituelles de connexion.",
+              "Vercel héberge le site et Render héberge l’API du déploiement actuel. Les comptes et progressions sont stockés dans la base de données associée au service API. Google ou GitHub interviennent lorsque vous choisissez un mode de connexion disponible avec ces fournisseurs. L’API peut consulter les services publics de la NASA sans avoir besoin de votre mot de passe ni de votre progression. Les liens externes, comme LinkedIn, Instagram ou des ressources éducatives, ouvrent des services régis par leurs propres politiques de confidentialité.",
               "Ces prestataires peuvent traiter des informations dans les pays où se trouvent leurs centres de données. Consultez leurs politiques et paramètres pour connaître les lieux, conditions de transfert et durées de conservation.",
             ],
           },
           {
             title: "4. Stockage et conservation",
             paragraphs: [
-              "Le jeton d'accès et les préférences de GuaTec sont enregistrés dans le stockage local du navigateur, et non dans un cookie de suivi. Le jeton permet d'utiliser la session et expire selon la configuration du serveur. Vous pouvez vous déconnecter pour supprimer le jeton et effacer les données locales du navigateur ; cela ne supprime pas la progression déjà enregistrée sur le serveur.",
-              "Les données et progressions liées à votre compte sont conservées tant que le compte est actif ou qu'elles sont nécessaires au service. Pour en demander la suppression, écrivez à l'adresse de contact depuis l'adresse e-mail associée au compte et indiquez votre nom d'utilisateur. La demande sera vérifiée et les données pouvant être effacées le seront, à l'exception de celles à conserver pour la sécurité, les obligations légales ou les sauvegardes pendant leur cycle normal.",
+              "Le jeton, les préférences et la copie locale d’Apollo 11 sont conservés dans le stockage du navigateur. La déconnexion supprime le jeton, mais pas automatiquement les préférences, les copies locales ou la progression du serveur. Effacer les données du site dans le navigateur supprime ses copies locales, sans supprimer les données du serveur. La connexion Google ou GitHub peut utiliser un cookie technique de session pour vérifier l’authentification ; ce n’est pas un cookie publicitaire.",
+              "Les données et progressions sont conservées tant que le compte est actif ou qu’elles sont nécessaires au service, ainsi que pour la sécurité ou les obligations légales applicables. La conservation des journaux techniques et sauvegardes des fournisseurs dépend de leurs paramètres et politiques. La déconnexion ne supprime pas automatiquement le compte. En mode Invité, perdre le jeton ou effacer les données du navigateur peut empêcher de retrouver l’accès ; conservez votre session pendant votre demande d’aide.",
             ],
           },
           {
             title: "5. Vos droits et demandes",
             paragraphs: [
-              "Selon le droit applicable, vous pouvez demander l'accès, la rectification, l'effacement, la portabilité ou la limitation du traitement, vous y opposer ou retirer votre consentement. Vous pouvez également saisir l'autorité compétente en matière de protection des données. Utilisez les moyens de contact ci-dessous pour exercer ces droits ou signaler un problème de confidentialité.",
+              "Selon le droit applicable, vous pouvez demander l’accès, la rectification, l’effacement, la portabilité ou la limitation du traitement, vous y opposer ou retirer votre consentement lorsque cela s’applique. Vous pouvez aussi saisir l’autorité de protection des données compétente. Le contact de confidentialité de GuaTec est Andrés Sánchez Pérez : anndreesh@icloud.com. Ses coordonnées figurent dans l’onglet Contact.",
+              "Pour demander l’accès, la rectification ou la suppression, écrivez à cette adresse avec votre nom d’utilisateur et votre demande. Si votre compte a une adresse e-mail associée, utilisez-la. En mode Invité, précisez que votre profil n’a pas d’e-mail ; une vérification proportionnée de la titularité sera convenue avant toute modification ou communication de données. N’envoyez ni mot de passe ni jeton. La suppression sur le serveur n’efface pas les copies locales de vos appareils ; effacez aussi les données du site dans chaque navigateur.",
             ],
           },
           {
