@@ -103,9 +103,9 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
     box(.035,.10,.26,paper,0,.16,0,head);
     box(.04,.035,.009,metal,0,.12,.168,head);
   } else if(role==='observation') {
-    sphere(.159,shirt,0,.09,-.01,head).scale.set(1,.55,1);
-    box(.27,.02,.17,shirt,0,.09,.13,head);
-    box(.04,.025,.012,paper,0,.13,.142,head);
+    sphere(.159,shirt,0,.115,-.012,head).scale.set(1,.62,1);
+    box(.27,.02,.17,shirt,0,.112,.13,head);
+    box(.04,.025,.012,paper,0,.15,.142,head);
   }
   if(role==='documentation') {
     for(const side of [-1,1]) {
@@ -138,14 +138,15 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
     for(let i=0;i<3;i++)box(.07,.005,.008,metal,0,-.375,.04+i*.025,shin);
     return hip;
   });
+  const elbows:THREE.Group[]=[];
   const arms=[-1,1].map(side=>{
     const shoulder=new THREE.Group();shoulder.name=side<0?'left-shoulder':'right-shoulder';shoulder.position.set(side*.235,1.37,0);root.add(shoulder);
     const upper=mesh(new THREE.CapsuleGeometry(.067,.145,4,12),shirt,side*.035,-.10,.012,shoulder);
     upper.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(-side*.07,.23,-.025).normalize());
-    const elbow=new THREE.Group();elbow.name='elbow';elbow.position.set(side*.07,-.25,.025);shoulder.add(elbow);
+    const elbow=new THREE.Group();elbow.name='elbow';elbow.position.set(side*.07,-.25,.025);shoulder.add(elbow);elbows.push(elbow);
     cylinder(.060,.060,.018,shirt,0,.015,0,elbow);
-    beam(new THREE.Vector3(),new THREE.Vector3(-side*.035,-.13,.18),.044,skin,elbow);
-    const hand=new THREE.Group();hand.name='hand';hand.position.set(-side*.035,-.145,.20);hand.rotation.x=-.65;elbow.add(hand);
+    beam(new THREE.Vector3(),new THREE.Vector3(0,-.22,0),.044,skin,elbow);
+    const hand=new THREE.Group();hand.name='hand';hand.position.set(0,-.235,0);hand.rotation.x=.25;elbow.add(hand);
     sphere(.042,skin,0,0,0,hand).scale.set(.8,1.1,.55);
     for(let i=0;i<4;i++){
       const x=-.025+i*.016,length=i===0||i===3?.031:.039;
@@ -159,7 +160,32 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
       box(.23,.31,.018,leather,0,0,0,board);box(.20,.27,.008,paper,0,-.006,.015,board);box(.09,.025,.015,metal,0,.145,.02,board);
       for(let i=0;i<7;i++)box(i%3===0?.11:.16,.003,.008,seam,-.01,.09-i*.025,.022,board);
     }
+    if(side===1&&role==='communications'){
+      const mic=box(.055,.085,.035,leather,0,-.03,.03,hand);mic.name='push-to-talk-microphone';
+      for(let i=0;i<4;i++)box(.035,.004,.008,metal,0,-.005-i*.012,.05,hand);
+      box(.012,.018,.01,metal,.031,-.02,.03,hand);
+    }
+    if(side===1&&role==='complex'){
+      // Open-ended spanner: a readable tool silhouette, held by the grip.
+      box(.022,.17,.012,metal,0,-.06,.025,hand);
+      for(const side of[-1,1])box(.018,.045,.018,metal,side*.025,.043,.025,hand);
+      box(.062,.018,.018,metal,0,.016,.025,hand);
+    }
+    if(side===1&&role==='observation'){
+      const optics=new THREE.Group();optics.name='field-binoculars';optics.position.set(-.045,-.025,.035);optics.rotation.x=-.25;hand.add(optics);
+      for(const x of[-.043,.043]){
+        const body=cylinder(.034,.042,.11,leather,x,0,.035,optics);body.rotation.x=Math.PI/2;
+        const rim=cylinder(.044,.044,.015,metal,x,0,.095,optics);rim.rotation.x=Math.PI/2;
+        const lens=cylinder(.035,.035,.003,seam,x,0,.105,optics);lens.rotation.x=Math.PI/2;
+      }
+      box(.09,.025,.06,leather,0,0,.025,optics);
+      cylinder(.014,.014,.04,metal,0,.022,.025,optics);
+    }
     return shoulder;
   });
-  return {root,head,leftArm:arms[0]!,rightArm:arms[1]!,leftLeg:legs[0]!,rightLeg:legs[1]!};
+  if(role==='communications'){
+    box(.12,.18,.055,leather,.20,.85,-.04);
+    cylinder(.005,.005,.12,metal,.20,1.0,-.04);
+  }
+  return {root,head,leftElbow:elbows[0]!,rightElbow:elbows[1]!,leftArm:arms[0]!,rightArm:arms[1]!,leftLeg:legs[0]!,rightLeg:legs[1]!};
 }

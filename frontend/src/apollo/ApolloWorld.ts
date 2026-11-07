@@ -1,3 +1,4 @@
+import { technicianPose } from './ApolloTechnicianPose';
 import { buildTechnician } from './ApolloTechnician';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -78,7 +79,7 @@ export class ApolloWorld {
   private arms: THREE.Group[] = [];
   private crew: THREE.Group[] = [];
   private people: { root: THREE.Group; mixer: THREE.AnimationMixer; walk: THREE.AnimationAction | null; idle: THREE.AnimationAction | null; run: THREE.AnimationAction | null; jump: THREE.AnimationAction | null }[] = [];
-  private technicians: { root: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group; head: THREE.Group; baseX: number; baseZ: number; radius: number; phase: number; speed: number; role: string }[] = [];
+  private technicians: { leftElbow: THREE.Group; rightElbow: THREE.Group; root: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group; head: THREE.Group; baseX: number; baseZ: number; radius: number; phase: number; speed: number; role: string }[] = [];
   private mixers: THREE.AnimationMixer[] = [];
   private colliders: Collider[] = [];
   private sun = new THREE.DirectionalLight(0xfff0d3, 3.2);
@@ -839,11 +840,15 @@ export class ApolloWorld {
   private addTechnician(x: number, z: number, role = 'support'): void {
     this.colliders.push({x,z,w:.29,d:.22});
     const rig = buildTechnician(role, (name, color, roughness, metalness) => this.material(name, color, roughness, metalness));
-    const { root: group, head, leftArm, rightArm, leftLeg, rightLeg } = rig;
+    const { root: group, head, leftArm, rightArm, leftLeg, rightLeg, leftElbow, rightElbow } = rig;
     group.position.set(x, 0, z);
-    // Only these five pivots are animated. Bake static cuffs, fingers and tools
-    // into their owning limb, avoiding a separate draw for every small joint.
-    for (const joint of [head, leftArm, rightArm, leftLeg, rightLeg]) this.mergeAuthored(joint);
+    const pose=technicianPose(role,0,this.reducedMotion);
+    leftArm.rotation.set(pose.leftArm,0,pose.leftSpread);
+    rightArm.rotation.set(pose.rightArm,0,pose.rightSpread);
+    leftElbow.rotation.x=pose.leftElbow;rightElbow.rotation.x=pose.rightElbow;
+    // Forearms articulate independently; costume and tools remain one batch per
+    // material under the owning elbow. No separate animated finger draw calls.
+    for (const joint of [head, leftElbow, rightElbow, leftLeg, rightLeg]) this.mergeAuthored(joint);
     this.mergeAuthored(group, true);
     // At the map's shadow texel scale, fingers/buttons add draw calls without
     // changing the ground silhouette. One torso proxy grounds each technician.
@@ -852,7 +857,7 @@ export class ApolloWorld {
     const shadowProxy=new THREE.Mesh(new THREE.CapsuleGeometry(.23,1.12,3,8),shadowMaterial);
     shadowProxy.name='technician-shadow-proxy';shadowProxy.position.y=.85;shadowProxy.scale.z=.7;shadowProxy.castShadow=true;group.add(shadowProxy);
     this.scene.add(group);
-    this.technicians.push({root:group,leftArm,rightArm,leftLeg,rightLeg,head,baseX:x,baseZ:z,radius:role==='observation'?.42:.28,phase:role==='communications'?.8:role==='documentation'?2.2:role==='observation'?3.4:1.1,speed:role==='documentation'?.55:.7,role});
+    this.technicians.push({leftElbow,rightElbow,root:group,leftArm,rightArm,leftLeg,rightLeg,head,baseX:x,baseZ:z,radius:role==='observation'?.42:.28,phase:role==='communications'?.8:role==='documentation'?2.2:role==='observation'?3.4:1.1,speed:role==='documentation'?.55:.7,role});
   }
   private addFallbackSuit(root: THREE.Group): void {
     const suit = this.material('fallback-suit', 0xd9d8c6);
@@ -1025,15 +1030,18 @@ export class ApolloWorld {
       technician.root.position.y = Math.sin(phase) * .003 * motion;
       technician.leftLeg.rotation.x = 0;
       technician.rightLeg.rotation.x = 0;
-      technician.leftArm.rotation.x = -.14 + Math.sin(phase * 1.3) * .055 * motion;
-      technician.rightArm.rotation.x = (technician.role === 'communications' ? -.62 : -.24) + Math.sin(phase * .8) * .07 * motion;
-      technician.leftArm.rotation.z = -.05 + Math.sin(phase * .5) * .02 * motion;
-      technician.rightArm.rotation.z = .05 - Math.sin(phase * .5) * .02 * motion;
+      const pose=technicianPose(technician.role,phase,this.reducedMotion);
+      technician.leftArm.rotation.x=pose.leftArm;
+      technician.rightArm.rotation.x=pose.rightArm;
+      technician.leftElbow.rotation.x=pose.leftElbow;
+      technician.rightElbow.rotation.x=pose.rightElbow;
+      technician.leftArm.rotation.z=pose.leftSpread;
+      technician.rightArm.rotation.z=pose.rightSpread;
       const dx = this.player.x - technician.baseX, dz = this.player.z - technician.baseZ;
       const nearby = dx * dx + dz * dz < 36;
       const look = nearby ? clamp(Math.atan2(dx, dz), -.55, .55) : Math.sin(phase * .31) * .12 * motion;
       technician.head.rotation.y += (look - technician.head.rotation.y) * (1 - Math.exp(-4 * dt));
-      technician.head.rotation.x += ((nearby ? -.025 : .06) - technician.head.rotation.x) * (1 - Math.exp(-3 * dt));
+      technician.head.rotation.x += ((nearby ? -.025 : .06)+pose.headPitch - technician.head.rotation.x) * (1 - Math.exp(-3 * dt));
     }
   }
   private applyDeadzone(value: number, deadzone = 0.14): number {

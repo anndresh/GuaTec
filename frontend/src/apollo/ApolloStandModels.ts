@@ -157,6 +157,24 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
     put(new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 1, steps: 1, curveSegments: 3 }), material, x, y, z);
   };
+  // Folded equipment chassis with a raked upper return and a recessed rear.
+  // The front plane stays fixed so existing scales, sockets and moving controls
+  // retain their original placement. Side caps share the existing metal batches.
+  const chassis = (w:number,h:number,d:number,m:THREE.Material,x:number,y:number,z:number) => {
+    const profile=new THREE.Shape(),cut=Math.min(.10,h*.18,d*.23);
+    profile.moveTo(0,-h/2+cut);profile.lineTo(cut,-h/2);
+    profile.lineTo(d,-h/2);profile.lineTo(d,h/2-cut);
+    profile.lineTo(d-cut,h/2);profile.lineTo(cut,h/2);
+    profile.lineTo(0,h/2-cut);profile.closePath();
+    const shape=(span:number)=>{
+      const g=new THREE.ExtrudeGeometry(profile,{depth:span,bevelEnabled:true,bevelSize:.015,bevelThickness:.012,bevelSegments:1,steps:1});
+      g.translate(0,0,-span/2);g.rotateY(-Math.PI/2);return g;
+    };
+    put(shape(w),m,x,y,z);
+    // End cheeks reveal the depth of the case and the return under the fascia.
+    for(const side of[-1,1])put(shape(.022),steel,x+side*(w/2-.012),y,z);
+    box(w-.08,.035,.035,dark,x,y-h/2+.025,z+d+.018);
+  };
   const meter = (x: number, y: number, z: number, cell = 1, channel?:StandControlChannel) => { beveled(.63, .53, .1, dark, x, y, z); sheet(cell, .54, .45, x, y, z + .128,0,0,channel); };
   const knob = (x: number, y: number, z: number, r = .08, channel?:StandControlChannel) => {
     // A mounting washer, radial grip flutes and a raised index, all in existing batches.
@@ -375,14 +393,28 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       cyl(.025,.29,steel,1.02,1.975,-.01);
       cyl(.065,.20,red,1.02,2.12,-.01,0,Math.PI/2);
     });
-    beveled(.68,1.35,.65,paint,2.12,.85,-.64);
+    chassis(.68,1.35,.65,paint,2.12,.85,-.64);
+    // A removable side cooling cassette exposes a recessed fan behind a circular
+    // guard. Its projection remains inside the transformer collision envelope.
+    box(.035,.66,.48,dark,2.475,.90,-.31);
+    box(.018,.59,.42,cream,2.498,.90,-.31);
+    cyl(.17,.018,dark,2.503,.94,-.31,0,Math.PI/2);
+    put(new THREE.TorusGeometry(.16,.012,5,20),steel,2.506,.94,-.31,0,Math.PI/2);
+    for(let blade=0;blade<4;blade++){
+      const a=blade*Math.PI/2;
+      put(new THREE.BoxGeometry(.012,.23,.028),steel,2.509,.94,-.31,a,0,0);
+    }
+    cyl(.045,.025,steel,2.505,.94,-.31,0,Math.PI/2);
+    for(const dz of[-.22,.22])box(.025,.63,.028,paint,2.506,.90,-.31+dz);
+    // Motor feet and a low carry cradle give the tall transformer a load path.
+    for(const dx of[-.25,.25])box(.10,.075,.74,dark,2.12+dx,.16,-.32);
     caseHardware(.68,1.35,.65,2.12,.85,-.64);
     for(let i=0;i<7;i++)box(.51,.025,.025,dark,2.12,.42+i*.14,.04);
     tube([[1.72,.35,-.5],[1.55,.18,-.9],[.8,.15,-.9],[.4,.45,-.6]],.035,red);
     tools(.6);multimeter(-1.02);
   } else if(kind==='telemetry') {
     // Three recessed CRT faces, control shelf and a full-height tape/data rack.
-    beveled(2.95,.95,.45,paint,0,1.72,-.66);
+    chassis(2.95,.95,.45,paint,0,1.72,-.66);
     for(let i=0;i<3;i++){
       const x=-.96+i*.96;meter(x,1.84,-.18,[14,2,15][i]!);knob(x-.18,1.39,-.11,.075,`telemetry-${i}` as StandControlChannel);knob(x+.15,1.39,-.11,.05);
       box(.78,.06,.18,dark,x,2.15,-.13);
@@ -394,7 +426,14 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     put(new THREE.BoxGeometry(2.89,.075,.42),paint,0,1.255,.18,-.14);
     box(2.91,.06,.045,steel,0,1.285,.39);
     for(const x of[-1.38,1.38])sideGusset(x,1.28,-.02,.13,.42,dark);
-    beveled(.73,2.23,.61,dark,2.02,1.31,-.70);
+    chassis(.73,2.23,.61,dark,2.02,1.31,-.70);
+    // Full-depth rack rails, top return and a recessed side service panel make
+    // the modules read as removable equipment rather than a decorated pillar.
+    for(const x of[1.68,2.36])box(.038,2.13,.59,steel,x,1.31,-.40);
+    box(.63,.045,.54,paint,2.02,2.39,-.40);
+    box(.025,1.68,.44,paint,2.401,1.23,-.41);
+    for(const z of[-.56,-.28])box(.012,1.50,.018,dark,2.414,1.23,z);
+    for(const y of[.28,2.31])box(.07,.045,.49,steel,2.385,y,-.40);
     // Rack ears, repeated fixings and pull handles make the removable modules read.
     for(const x of[1.68,2.36]){
       box(.035,1.53,.035,steel,x,1.10,-.055);
@@ -407,8 +446,10 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       for(let vent=0;vent<4;vent++)box(.014,.07,.012,dark,2.07+vent*.035,y,.009);
     }
     for(const x of[1.85,2.18]){
-      cyl(.17,.06,steel,x,2.11,-.02,Math.PI/2);cyl(.055,.075,dark,x,2.11,.022,Math.PI/2);
-      for(let n=0;n<3;n++)put(new THREE.BoxGeometry(.025,.25,.014),dark,x,2.11,.025,0,0,n*Math.PI*2/3);
+      cyl(.17,.06,dark,x,2.11,-.02,Math.PI/2);
+      put(new THREE.RingGeometry(.115,.175,20),steel,x,2.11,.022);
+      cyl(.055,.075,steel,x,2.11,.022,Math.PI/2);
+      for(let n=0;n<3;n++)put(new THREE.BoxGeometry(.025,.25,.014),steel,x,2.11,.025,0,0,n*Math.PI*2/3);
     }
     // Tape deck transport: guides, capstan and the visible tape path between reels.
     for(const x of[1.86,2.03,2.19])cyl(.026,.048,steel,x,1.88,.015,Math.PI/2);
@@ -419,12 +460,24 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     clipboard(-.3,1.19,.24,2,.08);
   } else if(kind==='radio') {
     // A stacked receiver/transmitter, speaker grille and a wired handset.
-    beveled(2.5,.59,.48,cream,-.12,1.56,-.64);beveled(2.22,.42,.43,paint,-.25,2.08,-.61);
+    chassis(2.5,.59,.48,cream,-.12,1.56,-.64);chassis(2.22,.42,.43,paint,-.25,2.08,-.61);
+    // Recessed tuning fascia and narrow vented side cheeks separate the stacked
+    // receiver and transmitter. Rack shoes support the upper unit above the base.
+    for(const dx of[-.89,.89])box(.15,.105,.33,dark,-.25+dx,1.82,-.40);
+    for(const x of[-1.385,1.145]){
+      box(.018,.42,.35,dark,x,1.56,-.39);
+      for(let row=0;row<5;row++)box(.025,.025,.29,steel,x,1.40+row*.07,-.39);
+    }
+    // A cast speaker bezel surrounds an actual open grille and a recessed cone.
+    box(.83,.40,.025,dark,.48,1.57,-.125);
+    cyl(.16,.025,paint,.48,1.57,-.110,Math.PI/2);
+    cyl(.055,.025,dark,.48,1.57,-.092,Math.PI/2);
+    for(const z of[-.54,-.31])box(2.18,.028,.018,steel,-.25,2.305,z);
     for(const x of[-1.12,.87])handle(x,2.04,-.145,.12,.11);
     for(const x of[-1.24,1.0])for(const y of[1.34,1.78])cyl(.022,.018,steel,x,y,-.125,Math.PI/2);
     sheet(10,1.24,.30,-.55,2.08,-.15);knob(.63,2.07,-.12,.12);
     meter(-.83,1.57,-.13,2);knob(-.17,1.57,-.10,.10);
-    for(let i=0;i<8;i++)box(.025,.36,.018,dark,.2+i*.085,1.57,-.12);
+    for(let i=0;i<8;i++)box(.025,.36,.018,dark,.2+i*.085,1.57,-.070);
     tube([[.3,1.19,.46],[.46,1.45,.30],[.9,1.46,.24],[1.04,1.18,.15]],.035,dark);
     cyl(.12,.10,dark,.33,1.21,.46,Math.PI/2);cyl(.12,.10,dark,1.02,1.21,.15,Math.PI/2);
     tube([[.85,1.18,-.50],[.84,1.65,-.4],[1.08,1.75,-.2]],.018,steel);cyl(.065,.16,dark,1.12,1.75,-.15,Math.PI/2);
@@ -595,7 +648,13 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     // Survey uses an open gimbal/theodolite; tracking uses a twin-reel film camera.
     const cx=-2.13;
     if(kind==='tracking'){
-      beveled(.72,.5,.60,paint,cx,1.83,-.32);
+      chassis(.72,.5,.60,paint,cx,1.83,-.32);
+      // Stepped film throat and cast shoulder join the reel magazines to the
+      // optical body. The rear operator side stays open for the existing grip.
+      box(.50,.12,.39,dark,cx,2.10,-.01);
+      for(const dx of[-.28,.28])box(.065,.13,.33,cream,cx+dx,2.065,-.03);
+      for(const z of[-.17,.0,.17])box(.025,.21,.055,dark,cx-.379,1.83,z);
+      box(.085,.24,.25,paint,cx+.39,1.83,-.02);
       // The lens turret is bolted to the forward camera casting, closing the
       // gap between the original film body and its objective barrel.
       cyl(.23,.17,paint,cx,1.83,-.405,Math.PI/2);
@@ -612,12 +671,14 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       box(.13,.13,.46,paint,cx+.29,2.015,-.06);
       cyl(.078,.12,dark,cx+.29,2.015,.20,Math.PI/2);
       for(const dx of[-.20,.20]){
-        cyl(.22,.13,dark,cx+dx,2.22,.03,Math.PI/2);cyl(.175,.018,steel,cx+dx,2.22,.105,Math.PI/2);
+        cyl(.22,.13,dark,cx+dx,2.22,.03,Math.PI/2);
+        put(new THREE.RingGeometry(.12,.20,24),steel,cx+dx,2.22,.105);
+        put(new THREE.TorusGeometry(.205,.012,5,24),paint,cx+dx,2.22,.109);
         cyl(.045,.035,copper,cx+dx,2.22,.12,Math.PI/2);
         if(animated){
           const reel=new THREE.Group();reel.name='tracking-film-reel';reel.position.set(cx+dx,2.22,.12);root.add(reel);
           for(let spoke=0;spoke<3;spoke++){
-            const mesh=new THREE.Mesh(new THREE.BoxGeometry(.025,.30,.008),dark);mesh.rotation.z=spoke*Math.PI/3;reel.add(mesh);
+            const mesh=new THREE.Mesh(new THREE.BoxGeometry(.025,.34,.008),steel);mesh.rotation.z=spoke*Math.PI/3;reel.add(mesh);
           }
           movingParts.push({node:reel,axis:'z',speed:dx<0?.8:1.1,activity:'tracking'});
         }
