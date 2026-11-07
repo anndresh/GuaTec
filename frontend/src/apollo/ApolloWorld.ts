@@ -1,3 +1,4 @@
+import { buildTechnician } from './ApolloTechnician';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -837,50 +838,13 @@ export class ApolloWorld {
   }
   private addTechnician(x: number, z: number, role = 'support'): void {
     this.colliders.push({x,z,w:.29,d:.22});
-    const group = new THREE.Group(); group.name = `dynamic-technician-${role}`; group.position.set(x, 0, z); group.userData.dynamicTechnician = true;
-    const shirtColor = role === 'communications' ? 0x728b8e : role === 'documentation' ? 0xb6a46e : role === 'observation' ? 0x768b68 : 0xd9d4bd;
-    const shirt=this.material(`technician-shirt-${role}`,shirtColor,.92,0),pants=this.material('technician-pants',0x42585f,.94,0),skin=this.material('skin',0xb98e67,.85,0),shoe=this.material('worker-shoe',0x303a35,.8,.05),badge=this.material(`worker-badge-${role}`,role==='communications'?0xc08d45:0x718b8d,.55,.2);
-    const addBox=(w:number,h:number,d:number,mat:THREE.Material,px:number,py:number,pz:number,parent:THREE.Group=group)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);mesh.position.set(px,py,pz);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;};
-    const addCylinder=(rt:number,rb:number,h:number,mat:THREE.Material,px:number,py:number,pz:number,parent:THREE.Group=group)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,10),mat);mesh.position.set(px,py,pz);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;};
-    const addSphere=(r:number,mat:THREE.Material,px:number,py:number,pz:number,parent:THREE.Group=group)=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(r,12,9),mat);mesh.position.set(px,py,pz);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;};
-    const beam=(a:THREE.Vector3,b:THREE.Vector3,width:number,mat:THREE.Material,parent:THREE.Group)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(width,width*.9,a.distanceTo(b),8),mat);mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(UP,b.clone().sub(a).normalize());mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;};
-    const shirtProfile=[[.22,.91],[.20,1.02],[.195,1.15],[.235,1.34],[.26,1.38],[.20,1.43],[.08,1.47]];
-    const tailoredShirt=new THREE.Mesh(new THREE.LatheGeometry(shirtProfile.map(([r,y])=>new THREE.Vector2(r,y)),16),shirt);
-    tailoredShirt.scale.z=.65;tailoredShirt.receiveShadow=true;group.add(tailoredShirt);
-    addBox(.42,.08,.28,this.material('worker-belt',0x4b4d3e),0,.91,0);
-    const head=new THREE.Group();head.position.set(0,1.69,0);group.add(head);addSphere(.15,skin,0,0,0,head).scale.set(1,1.2,.93);addCylinder(.074,.074,.13,skin,0,-.21,0,head);
-    const cap=addSphere(.16,shirt,0,1.77-1.69,0,head);cap.scale.set(1,0.65,1);addBox(.27,.025,.15,shirt,0,.08,.13,head);
-    for(const dx of [-.052,.052])addBox(.022,.016,.009,shoe,dx,.02,.137,head);
-    addBox(.13,.1,.012,shirt,-.11,1.27,.166);addBox(.07,.028,.013,badge,-.11,1.29,.18);
-    addSphere(.027,skin,0,-.025,.143,head).scale.set(.7,1,1.2);
-    addSphere(.09,skin,0,-.102,.012,head).scale.set(1,.75,1.04);
-    addBox(.057,.006,.008,shoe,0,-.09,.14,head);
-    for (const side of [-1,1]) {
-      addSphere(.03,skin,side*.145,0,0,head).scale.set(.6,1,.7);
-      addBox(.041,.009,.012,shoe,side*.052,.047,.136,head);
-      const collar=addBox(.09,.055,.025,shirt,side*.055,1.45,.12);collar.rotation.z=side*.4;
-    }
-    if(role==='documentation'){
-      for(const side of[-1,1]){
-        const frame=new THREE.Mesh(new THREE.TorusGeometry(.035,.004,4,16),shoe);
-        frame.position.set(side*.052,.02,.145);head.add(frame);
-        addBox(.008,.008,.11,shoe,side*.10,.02,.09,head);
-      }
-      addBox(.04,.006,.008,shoe,0,.02,.148,head);
-    }
-    if(role==='communications'){
-      const band=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-.16,.01,0),new THREE.Vector3(-.17,.16,0),new THREE.Vector3(0,.20,-.02),new THREE.Vector3(.17,.16,0),new THREE.Vector3(.16,.01,0)]),16,.014,5,false),shoe);head.add(band);
-      for(const side of[-1,1])addSphere(.054,shoe,side*.16,.01,0,head).scale.set(.65,1,1);
-      const mic=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(.16,0,0),new THREE.Vector3(.16,-.07,.10),new THREE.Vector3(.045,-.08,.17)]),8,.008,5,false),shoe);head.add(mic);
-      addSphere(.018,shoe,.045,-.08,.17,head);
-    }
-    addBox(.005,.36,.015,this.material('worker-belt',0x4b4d3e),0,1.17,.168);
-    for (let button=0;button<3;button++)addSphere(.008,badge,.02,1.08+button*.10,.177);
-    const legs=[-1,1].map(side=>{const hip=new THREE.Group();hip.position.set(side*.115,.9,0);group.add(hip);addCylinder(.095,.084,.42,pants,0,-.21,0,hip);const shin=new THREE.Group();shin.position.set(0,-.42,0);hip.add(shin);addCylinder(.083,.069,.43,pants,0,-.215,0,shin);addBox(.16,.12,.29,shoe,0,-.46,.055,shin);return hip;});
-    const arms=[-1,1].map(side=>{const shoulder=new THREE.Group();shoulder.position.set(side*.24,1.37,0);group.add(shoulder);beam(new THREE.Vector3(0,0,0),new THREE.Vector3(side*.08,-.28,.025),.06,shirt,shoulder);const elbow=new THREE.Group();elbow.position.set(side*.08,-.28,.025);shoulder.add(elbow);beam(new THREE.Vector3(0,0,0),new THREE.Vector3(-side*.03,-.15,.21),.045,skin,elbow);addSphere(.06,skin,-side*.03,-.16,.21,elbow);return shoulder;});
-    if(role==='documentation'){const board=addBox(.23,.32,.025,badge,.28,.98,.22);board.rotation.x=-.22;}
-    if(role==='communications'){addCylinder(.018,.018,.22,badge,.22,1.44,.03);addSphere(.045,badge,.22,1.58,.03);}
-    group.userData.role = role; this.mergeAuthored(group, true);
+    const rig = buildTechnician(role, (name, color, roughness, metalness) => this.material(name, color, roughness, metalness));
+    const { root: group, head, leftArm, rightArm, leftLeg, rightLeg } = rig;
+    group.position.set(x, 0, z);
+    // Only these five pivots are animated. Bake static cuffs, fingers and tools
+    // into their owning limb, avoiding a separate draw for every small joint.
+    for (const joint of [head, leftArm, rightArm, leftLeg, rightLeg]) this.mergeAuthored(joint);
+    this.mergeAuthored(group, true);
     // At the map's shadow texel scale, fingers/buttons add draw calls without
     // changing the ground silhouette. One torso proxy grounds each technician.
     group.traverse(node=>{if(node instanceof THREE.Mesh)node.castShadow=false;});
@@ -888,7 +852,7 @@ export class ApolloWorld {
     const shadowProxy=new THREE.Mesh(new THREE.CapsuleGeometry(.23,1.12,3,8),shadowMaterial);
     shadowProxy.name='technician-shadow-proxy';shadowProxy.position.y=.85;shadowProxy.scale.z=.7;shadowProxy.castShadow=true;group.add(shadowProxy);
     this.scene.add(group);
-    this.technicians.push({root:group,leftArm:arms[0]!,rightArm:arms[1]!,leftLeg:legs[0]!,rightLeg:legs[1]!,head,baseX:x,baseZ:z,radius:role==='observation'?.42:.28,phase:role==='communications'?.8:role==='documentation'?2.2:role==='observation'?3.4:1.1,speed:role==='documentation'?.55:.7,role});
+    this.technicians.push({root:group,leftArm,rightArm,leftLeg,rightLeg,head,baseX:x,baseZ:z,radius:role==='observation'?.42:.28,phase:role==='communications'?.8:role==='documentation'?2.2:role==='observation'?3.4:1.1,speed:role==='documentation'?.55:.7,role});
   }
   private addFallbackSuit(root: THREE.Group): void {
     const suit = this.material('fallback-suit', 0xd9d8c6);

@@ -243,7 +243,27 @@ export function buildSupportBuilding(
       // Surface conduit follows an existing wall rather than creating obstacles.
       facadeBox(along * .48, .065, .07, metal, 0, .94, .11);
       facadeBox(.065, .65, .07, metal, along * .23, 1.23, .11);
-      facadeBox(.38, .46, .16, recess, along * .23, 1.72, .13);
+      // Weatherproof disconnect and analogue meter, sized to read at walking
+      // distance. The service assembly stays inside the existing .7 m envelope.
+      const serviceU = along * .23;
+      facadeBox(.65, .83, .20, recess, serviceU, 1.73, .16);
+      facadeBox(.56, .74, .055, metal, serviceU, 1.73, .285);
+      facadeBox(.74, .08, .35, trim, serviceU, 2.19, .20);
+      facadeBox(.12, .24, .055, recess, serviceU + .19, 1.63, .33);
+      facadeBox(.035, .16, .08, trim, serviceU + .19, 1.65, .37);
+      for (const y of [1.49, 1.97]) {
+        facadeBox(.075, .13, .055, trim, serviceU - .25, y, .33);
+      }
+      const meterU = serviceU - .07, meterY = 1.88;
+      const meterX = cosine * meterU + sine * (outside + .36);
+      const meterZ = -sine * meterU + cosine * (outside + .36);
+      add(new THREE.CylinderGeometry(.13, .13, .045, 12), recess,
+        meterX, meterY, meterZ, angle, Math.PI / 2);
+      add(new THREE.CylinderGeometry(.105, .105, .015, 12), glass,
+        cosine * meterU + sine * (outside + .395), meterY,
+        -sine * meterU + cosine * (outside + .395), angle, Math.PI / 2);
+      facadeBox(.02, .085, .012, trim, meterU, meterY + .015, .409);
+      facadeBox(.30, .09, .012, trim, serviceU - .035, 1.46, .321);
     }
     if (face === 3) {
       // A fixed service ladder provides a recognisable roof-access silhouette.

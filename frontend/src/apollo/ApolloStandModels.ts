@@ -281,18 +281,40 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
   // a lectern, a drafting table or a mobile cart rather than thirteen identical roofs.
   if(design.canopy!=='none'){
     const roofY=design.canopy==='dispatch'?2.95:2.7;
+    const canopyPaint=design.canopy==='clerk'?cream:paint;
+    const roofSlope=.075;
+    // Folded sheet metal, rather than a floating slab: the roof falls towards a
+    // continuous front gutter, with a rear flashing and returned side fascias.
+    put(new THREE.BoxGeometry(4,.045,1.4),canopyPaint,0,roofY,-.85,roofSlope);
     for(const x of[-1.88,1.88]){
       box(.065,roofY-.14,.065,steel,x,roofY/2,-1.2);
-      // Cantilever arms and knee braces carry the awning without closing the
-      // work side or introducing new feet beyond the existing post proxies.
-      box(.085,.085,1.4,steel,x,roofY-.075,-.85);
-      tube([[x,roofY-.70,-1.2],[x,roofY-.10,-.22]],.027,steel);
+      // Bolted foot and reinforced post cap remain inside the existing proxies.
+      box(.16,.035,.16,steel,x,.09,-1.2);
+      for(const dx of[-.055,.055])for(const dz of[-.055,.055])cyl(.012,.025,dark,x+dx,.12,-1.2+dz);
+      box(.14,.095,.17,paint,x,roofY-.14,-1.2);
+      box(.085,.085,1.4,steel,x,roofY-.105,-.85);
+      tube([[x,roofY-.70,-1.2],[x,roofY-.14,-.22]],.027,steel);
       box(.14,.20,.095,paint,x,roofY-.64,-1.2);
       for(const y of[roofY-.70,roofY-.58])cyl(.022,.11,dark,x,y,-1.2,Math.PI/2);
+      // Folded eaves show sheet thickness from the work side and the approach.
+      put(new THREE.BoxGeometry(.055,.14,1.42),canopyPaint,x/1.88*1.98,roofY-.055,-.85,roofSlope);
+      put(new THREE.BoxGeometry(.045,.025,1.4),steel,x/1.88*1.98,roofY-.128,-.85,roofSlope);
     }
-    box(4,.065,1.4,design.canopy==='clerk'?cream:paint,0,roofY,-.85);
-    for(let i=0;i<9;i++)box(.025,.08,1.4,steel,-1.84+i*.46,roofY+.04,-.85);
-    box(4,.16,.045,dark,0,roofY-.08,-.15);
+    // Standing seams and fasteners share the existing metal batch. The pitched
+    // roof makes the kiosk silhouette legible without adding walls or front feet.
+    for(let i=0;i<9;i++){
+      const x=-1.84+i*.46;
+      put(new THREE.BoxGeometry(.018,.05,1.4),steel,x,roofY+.04,-.85,roofSlope);
+      for(const z of[-1.37,-.32])cyl(.018,.014,steel,x,roofY+.075-(z+.85)*Math.sin(roofSlope),z);
+    }
+    box(3.76,.10,.075,steel,0,roofY-.13,-1.2);
+    box(4,.105,.045,canopyPaint,0,roofY-.015,-1.55);
+    // Open-topped gutter has a dark channel, two folded edges and end caps.
+    box(4,.035,.16,dark,0,roofY-.13,-.14);
+    for(const z of[-.205,-.065])box(4,.09,.022,steel,0,roofY-.10,z);
+    for(const x of[-1.99,1.99])box(.025,.09,.16,steel,x,roofY-.10,-.14);
+    // Drain spouts discharge clear of the documents; no new ground obstacle.
+    for(const x of[-1.88,1.88])tube([[x,roofY-.13,-.14],[x,roofY-.23,-.14],[x,roofY-.27,-.23]],.023,steel);
   }
   if(standHasIdentityPost(kind)){
     box(.04,2.12,.04,steel,-1.50,1.15,-1.02);
@@ -449,7 +471,9 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       }
       movingParts.push({node:rotor,axis:'y',speed:1.7,activity:'weather'});
     }else for (let a = 0; a < 3; a++) { const angle = a * Math.PI * 2 / 3; const x = 2.35 + Math.cos(angle) * .65, z = -.72 + Math.sin(angle) * .65; tube([[2.35, 3.86, -.72], [x, 3.86, z]], .025, steel); put(new THREE.SphereGeometry(.14, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), cream, x, 3.86, z, Math.PI / 2, angle); }
-    for(let i=0;i<5;i++)box(.59,.035,.52,cream,-2.35,1.25+i*.085,-.55);
+    // Inclined louvres shed rain while leaving real ventilation gaps; the dark
+    // instrument well stays recessed behind the blades instead of filling them.
+    for(let i=0;i<5;i++)put(new THREE.BoxGeometry(.59,.035,.52),cream,-2.35,1.25+i*.085,-.55,.12);
     // Overlapping pitched caps give the louvred shelter a weatherproof roof
     // silhouette while keeping the same ground support and collision footprint.
     box(.7,.065,.63,cream,-2.35,1.67,-.55);box(.53,.36,.34,dark,-2.35,1.44,-.60);
@@ -462,7 +486,20 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     for(const dx of[-.21,.21])box(.06,.075,.022,steel,-2.35+dx,1.45,-.235);
     cyl(.024,.09,dark,-2.16,1.43,-.21);
     box(.61,.04,.55,paint,-2.35,1.18,-.55);
-    for(const dx of[-.22,.22])for(const dz of[-.18,.18])box(.045,1.12,.045,steel,-2.35+dx,.66,-.55+dz);
+    for(const dx of[-.22,.22])for(const dz of[-.18,.18]){
+      box(.045,1.12,.045,steel,-2.35+dx,.66,-.55+dz);
+      box(.10,.035,.10,steel,-2.35+dx,.11,-.55+dz);
+    }
+    // Four-way stretcher and rear cross-bracing ground the Stevenson-style
+    // screen. Every contact stays within its original narrow support footprint.
+    for(const dx of[-.22,.22])box(.04,.04,.40,paint,-2.35+dx,.40,-.55);
+    for(const dz of[-.18,.18])box(.48,.04,.04,paint,-2.35,.40,-.55+dz);
+    tube([[-2.57,.43,-.73],[-2.13,1.10,-.73]],.012,steel);
+    tube([[-2.13,.43,-.73],[-2.57,1.10,-.73]],.012,steel);
+    // A separate upper rain cap leaves an air break above the pitched roof.
+    for(const dx of[-.24,.24])box(.025,.055,.025,steel,-2.35+dx,1.85,-.55);
+    for(const side of[-1,1])put(new THREE.BoxGeometry(.78,.022,.20),cream,-2.35,1.895,-.55+side*.09,side*.29);
+    box(.78,.025,.035,steel,-2.35,1.926,-.55);
   } else if (kind === 'beacons') {
     sheet(7,1.35,.93,-.15,1.185,.04,-Math.PI/2);cyl(.11,.18,dark,.72,1.28,.32,Math.PI/2);cyl(.11,.18,dark,.97,1.28,.32,Math.PI/2);
     tube([[.72,1.28,.28],[.83,1.32,.23],[.97,1.28,.28]],.028,steel);
