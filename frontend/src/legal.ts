@@ -12,6 +12,7 @@ interface Section {
 
 interface LegalDocument {
   title: string;
+  lastUpdated?: string;
   introduction: string;
   sections: Section[];
 }
@@ -136,6 +137,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Términos y condiciones de uso",
+        lastUpdated: "Última actualización: 7 de noviembre de 2026",
         introduction:
           "Al acceder a GuaTec aceptas estas condiciones. Si no estás de acuerdo, no crees una cuenta ni continúes usando el servicio.",
         sections: [
@@ -144,12 +146,14 @@ const copy: Record<Language, LegalCopy> = {
             paragraphs: [
               "GuaTec es una experiencia educativa y de simulación de exploración espacial. Sus escenas, decisiones, cronología, resultados y sistemas son representaciones narrativas o mecánicas; no constituyen datos científicos, predicciones ni instrucciones profesionales. Las referencias históricas y los recursos de terceros conservan sus respectivas autorías y condiciones de uso.",
               "GuaTec es independiente y no está afiliado, patrocinado ni avalado por la NASA. Los nombres y referencias de NASA identifican fuentes o temas relacionados, no una asociación institucional.",
+              "La misión jugable disponible es Apollo 11, ambientada en el Centro Espacial Kennedy el 16 de julio de 1969, con quince operaciones de apoyo terrestre. El jugador interpreta a un técnico ficticio; las actividades e instrumentos son simplificaciones educativas. Las misiones 02 y 03 aparecen como contenido futuro y todavía no son jugables.",
             ],
           },
           {
             title: "2. Cuentas y uso aceptable",
             paragraphs: [
               "Debes proporcionar datos de acceso correctos, mantener tu contraseña en privado y avisar si sospechas un acceso no autorizado. Eres responsable de la actividad realizada en tu cuenta mientras tengas control de ella.",
+              "Puedes utilizar el modo Invitado con un nombre de usuario o los métodos de acceso que estén disponibles. El progreso se vincula al perfil utilizado. Conserva el acceso a ese perfil: cerrar sesión o borrar los datos del navegador puede impedir recuperar una sesión de Invitado si no dispones de otro método de acceso. No compartas contraseñas ni tokens de sesión.",
             ],
             bullets: [
               "Utiliza GuaTec de forma legal y no intentes acceder a cuentas, datos o sistemas sin autorización.",
@@ -162,7 +166,7 @@ const copy: Record<Language, LegalCopy> = {
             title: "3. Propiedad intelectual y servicios externos",
             paragraphs: [
               "El código, la identidad visual y los materiales originales de GuaTec corresponden a sus titulares y se ofrecen conforme a las licencias aplicables. Los recursos de NASA, Poly Haven, proveedores de acceso y otros terceros siguen sujetos a sus propios derechos y términos; su mención no transfiere propiedad ni implica respaldo.",
-              "El acceso mediante Google o GitHub y el alojamiento/base de datos dependen de servicios externos. Su disponibilidad y tratamiento también se rigen por las condiciones y políticas de esos proveedores.",
+              "El sitio se publica en Vercel y la API del despliegue actual se sirve mediante Render. Los métodos de acceso mediante Google o GitHub, cuando están disponibles, y los servicios de alojamiento y base de datos dependen de proveedores externos. Su disponibilidad y tratamiento también se rigen por las condiciones y políticas de esos proveedores. Las noticias de NASA y las vistas de recursos externos pueden cambiar o no estar disponibles sin que ello implique un cambio en las misiones.",
             ],
           },
           {
@@ -280,6 +284,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Terms and conditions of use",
+        lastUpdated: "Last updated: November 7, 2026",
         introduction:
           "By accessing GuaTec, you agree to these terms. If you do not agree, do not create an account or continue using the service.",
         sections: [
@@ -288,12 +293,14 @@ const copy: Record<Language, LegalCopy> = {
             paragraphs: [
               "GuaTec is an educational space-exploration simulation. Its scenes, decisions, timeline, results and systems are narrative representations or simulation systems; they are not scientific data, predictions or professional instructions. Historical references and third-party resources remain subject to their respective attribution and terms.",
               "GuaTec is independent and is not affiliated with, sponsored by, or endorsed by NASA. NASA names and references identify sources or related subject matter, not an institutional partnership.",
+              "The available playable mission is Apollo 11, set at Kennedy Space Center on July 16, 1969, with fifteen ground-support operations. The player portrays a fictional technician; activities and instruments are educational simplifications. Missions 02 and 03 are shown as future content and are not yet playable.",
             ],
           },
           {
             title: "2. Accounts and acceptable use",
             paragraphs: [
               "Provide accurate sign-in information, keep your password private and report suspected unauthorized access. You are responsible for activity on your account while it is under your control.",
+              "You can use Guest mode with a username or the sign-in methods that are available. Progress is linked to the profile you use. Retain access to that profile: signing out or clearing browser data may prevent recovery of a Guest session if you have no other sign-in method. Do not share passwords or session tokens.",
             ],
             bullets: [
               "Use GuaTec lawfully and do not attempt to access accounts, data or systems without authorization.",
@@ -306,7 +313,7 @@ const copy: Record<Language, LegalCopy> = {
             title: "3. Intellectual property and third-party services",
             paragraphs: [
               "GuaTec's code, visual identity and original materials belong to their respective rights holders and are provided subject to applicable licenses. NASA, Poly Haven, sign-in provider and other third-party resources remain subject to their own rights and terms; mentioning them does not transfer ownership or imply endorsement.",
-              "Sign-in through Google or GitHub, and hosting/database functionality, depend on external services. Their availability and data processing are also governed by those providers' terms and policies.",
+              "The site is published on Vercel, and the API for the current deployment is served through Render. Google or GitHub sign-in methods, when available, and hosting and database services depend on external providers. Their availability and data processing are also governed by those providers’ terms and policies. NASA news and external resource viewers may change or become unavailable without implying a change to the missions.",
             ],
           },
           {
@@ -424,6 +431,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Conditions générales d’utilisation",
+        lastUpdated: "Dernière mise à jour : 7 novembre 2026",
         introduction:
           "En accédant à GuaTec, vous acceptez ces conditions. Si vous n'êtes pas d'accord, ne créez pas de compte et n'utilisez pas le service.",
         sections: [
@@ -432,12 +440,14 @@ const copy: Record<Language, LegalCopy> = {
             paragraphs: [
               "GuaTec est une simulation éducative d'exploration spatiale. Ses scènes, décisions, chronologie, résultats et systèmes sont des représentations narratives ou des systèmes de simulation ; ils ne constituent ni des données scientifiques, ni des prévisions, ni des instructions professionnelles. Les références historiques et ressources tierces restent soumises à leurs attributions et conditions respectives.",
               "GuaTec est indépendant et n'est ni affilié, ni financé, ni approuvé par la NASA. Les noms et références de la NASA identifient des sources ou des sujets connexes, et non un partenariat institutionnel.",
+              "La mission jouable disponible est Apollo 11, située au Centre spatial Kennedy le 16 juillet 1969, avec quinze opérations de soutien au sol. Le joueur incarne un technicien fictif ; les activités et instruments sont des simplifications éducatives. Les missions 02 et 03 sont présentées comme du contenu à venir et ne sont pas encore jouables.",
             ],
           },
           {
             title: "2. Comptes et utilisation acceptable",
             paragraphs: [
               "Fournissez des informations de connexion exactes, gardez votre mot de passe confidentiel et signalez tout accès non autorisé suspecté. Vous êtes responsable de l'activité effectuée sur votre compte tant que vous le contrôlez.",
+              "Vous pouvez utiliser le mode Invité avec un nom d’utilisateur ou les méthodes de connexion disponibles. La progression est liée au profil utilisé. Conservez l’accès à ce profil : vous déconnecter ou effacer les données du navigateur peut empêcher de retrouver une session Invité sans autre méthode de connexion. Ne partagez ni mots de passe ni jetons de session.",
             ],
             bullets: [
               "Utilisez GuaTec conformément à la loi et ne tentez pas d'accéder à des comptes, données ou systèmes sans autorisation.",
@@ -450,7 +460,7 @@ const copy: Record<Language, LegalCopy> = {
             title: "3. Propriété intellectuelle et services tiers",
             paragraphs: [
               "Le code, l'identité visuelle et les contenus originaux de GuaTec appartiennent à leurs titulaires et sont proposés conformément aux licences applicables. Les ressources de la NASA, de Poly Haven, des fournisseurs de connexion et d'autres tiers restent soumises à leurs propres droits et conditions ; leur mention ne transfère aucun droit et ne signifie aucun soutien.",
-              "La connexion via Google ou GitHub et l'hébergement/la base de données dépendent de services externes. Leur disponibilité et le traitement des données sont également régis par les conditions et politiques de ces prestataires.",
+              "Le site est publié sur Vercel et l’API du déploiement actuel est servie par Render. Les méthodes de connexion via Google ou GitHub, lorsqu’elles sont disponibles, ainsi que l’hébergement et la base de données dépendent de prestataires externes. Leur disponibilité et le traitement des données sont également régis par les conditions et politiques de ces prestataires. Les actualités de la NASA et les vues de ressources externes peuvent changer ou devenir indisponibles sans que les missions soient modifiées.",
             ],
           },
           {
@@ -605,7 +615,7 @@ function render(): void {
   appendText(intro, "span", "badge rounded-pill text-bg-warning mb-3", strings.project);
   appendText(intro, "h1", "display-5 fw-bold mb-3", page.title);
   appendText(intro, "p", "legal-lead lead mb-3", page.introduction);
-  appendText(intro, "p", "legal-updated small mb-0", strings.lastUpdated);
+  appendText(intro, "p", "legal-updated small mb-0", page.lastUpdated ?? strings.lastUpdated);
   body.append(intro);
 
   const nav = document.createElement("nav");
