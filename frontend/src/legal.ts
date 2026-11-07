@@ -22,6 +22,7 @@ interface TeamMember {
   email?: string;
   instagramUrl?: string;
   instagramHandle?: string;
+  linkedinUrl: string;
 }
 
 interface LegalCopy {
@@ -47,19 +48,8 @@ const TEAM_MEMBERS: TeamMember[] = [
     email: "anndreesh@icloud.com",
     instagramUrl: "https://www.instagram.com/anndreesh_/",
     instagramHandle: "@anndreesh_",
+    linkedinUrl: "https://www.linkedin.com/in/anndreesh/",
   },
-  {
-    name: "José Andrés Pérez del Cid",
-    instagramUrl: "https://www.instagram.com/andres__del_cid/",
-    instagramHandle: "@andres__del_cid",
-  },
-  {
-    name: "Diego José Estrada Pereira",
-    instagramUrl: "https://www.instagram.com/tg_diegoj/",
-    instagramHandle: "@tg_diegoj",
-  },
-  { name: "Luis Enrique Contreras Hernández" },
-  { name: "José Carlos Arana Mejía" },
 ];
 const LANGUAGES: Language[] = ["es", "en", "fr"];
 const DOCUMENTS: DocumentId[] = ["privacy", "terms", "contact"];
@@ -565,7 +555,7 @@ function render(): void {
   const main = document.createElement("main");
   main.className = "legal-shell container py-4 py-lg-5";
   const card = document.createElement("article");
-  card.className = "legal-card card border-0 shadow-lg overflow-hidden";
+  card.className = `legal-card card border-0 shadow-lg overflow-hidden${documentId === "contact" ? " legal-contact-page" : ""}`;
   const body = document.createElement("div");
   body.className = "card-body p-4 p-md-5";
 
@@ -652,7 +642,7 @@ function render(): void {
 
   if (documentId === "contact") {
     const contact = document.createElement("section");
-    contact.className = "legal-contact card mt-4";
+    contact.className = "legal-contact card mb-4";
     contact.setAttribute("aria-label", strings.contactLinksLabel);
     const contactBody = document.createElement("div");
     contactBody.className = "card-body legal-people";
@@ -661,15 +651,11 @@ function render(): void {
       person.className = "legal-person card";
       const personBody = document.createElement("div");
       personBody.className = "card-body";
-      appendText(personBody, "h2", "h6 fw-semibold mb-3", member.name);
+      appendText(personBody, "p", "legal-contact-eyebrow mb-2", strings.contactLinksLabel);
+      appendText(personBody, "h2", "legal-person-name mb-4", member.name);
 
-      const role = document.createElement("p");
-      role.className = "legal-contact-field legal-role-field";
-      appendText(role, "strong", "legal-contact-label", `${strings.roleLabel}:`);
-      const blankRole = document.createElement("span");
-      blankRole.className = "legal-contact-value";
-      blankRole.setAttribute("aria-label", strings.pendingLabel);
-      role.append(blankRole);
+      const channels = document.createElement("div");
+      channels.className = "legal-contact-channels";
 
       const email = document.createElement("p");
       email.className = "legal-contact-field";
@@ -685,7 +671,7 @@ function render(): void {
       }
 
       const instagram = document.createElement("p");
-      instagram.className = "legal-contact-field mb-0";
+      instagram.className = "legal-contact-field";
       appendText(instagram, "strong", "legal-contact-label", `${strings.instagramLabel}:`);
       if (member.instagramUrl && member.instagramHandle) {
         const link = document.createElement("a");
@@ -699,12 +685,24 @@ function render(): void {
         appendText(instagram, "span", "legal-contact-value", strings.pendingLabel);
       }
 
-      personBody.append(role, email, instagram);
+      const linkedin = document.createElement("p");
+      linkedin.className = "legal-contact-field";
+      appendText(linkedin, "strong", "legal-contact-label", "LinkedIn:");
+      const linkedinLink = document.createElement("a");
+      linkedinLink.className = "legal-contact-value";
+      linkedinLink.href = member.linkedinUrl;
+      linkedinLink.target = "_blank";
+      linkedinLink.rel = "noopener noreferrer";
+      linkedinLink.textContent = "linkedin.com/in/anndreesh/";
+      linkedin.append(linkedinLink);
+
+      channels.append(email, instagram, linkedin);
+      personBody.append(channels);
       person.append(personBody);
       contactBody.append(person);
     });
     contact.append(contactBody);
-    body.append(contact);
+    body.insertBefore(contact, sections);
   }
 
   const footer = document.createElement("footer");
