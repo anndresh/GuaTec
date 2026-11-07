@@ -241,7 +241,31 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     box(.18,.07,depth+.12,dark,x,.16,.04);
     if(kind==='weather')for(const z of[-depth/2+.12,depth/2-.12]){cyl(.095,.075,dark,x,.15,z,0,Math.PI/2);cyl(.035,.085,steel,x,.15,z,0,Math.PI/2);}
   }
-  box(design.width,.11,depth,dark,tx,1.04,.04);box(design.width-.04,.055,depth-.04,paint,tx,1.12,.04);
+  // Pressed worktop with softly radiused corners and a rolled enamel lip.
+  // The counter height and footprint are unchanged, keeping the instruments and
+  // existing interaction surface aligned with the working edge.
+  const counter = (w:number,d:number,h:number,r:number,material:THREE.Material,y:number) => {
+    const profile=new THREE.Shape();
+    profile.moveTo(-w/2+r,-d/2);profile.lineTo(w/2-r,-d/2);
+    profile.quadraticCurveTo(w/2,-d/2,w/2,-d/2+r);profile.lineTo(w/2,d/2-r);
+    profile.quadraticCurveTo(w/2,d/2,w/2-r,d/2);profile.lineTo(-w/2+r,d/2);
+    profile.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r);profile.lineTo(-w/2,-d/2+r);
+    profile.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
+    put(new THREE.ExtrudeGeometry(profile,{depth:h,bevelEnabled:true,bevelSize:.008,bevelThickness:.005,bevelSegments:1,curveSegments:4,steps:1}),material,tx,y,.04,-Math.PI/2);
+  };
+  counter(design.width-.016,depth-.016,.10,.085,dark,.99);
+  counter(design.width-.056,depth-.056,.045,.095,paint,1.0975);
+  // A folded end apron joins each side of the top to the trestle. Its clipped
+  // corners and recessed horizontal stamping give the bench structural depth.
+  for(const side of[-1,1]){
+    const profile=new THREE.Shape(),w=depth-.22;
+    profile.moveTo(-w/2,.11);profile.lineTo(w/2,.11);
+    profile.lineTo(w/2,-.06);profile.lineTo(w/2-.09,-.11);
+    profile.lineTo(-w/2+.09,-.11);profile.lineTo(-w/2,-.06);profile.closePath();
+    put(new THREE.ExtrudeGeometry(profile,{depth:.025,bevelEnabled:true,bevelThickness:.005,bevelSize:.007,bevelSegments:1,steps:1}),paint,tx+side*(design.width/2-.05),.94,.04,0,Math.PI/2);
+    box(.018,.025,depth-.50,dark,tx+side*(design.width/2-.03),.96,.04);
+    box(.02,.012,depth-.54,steel,tx+side*(design.width/2-.03),.936,.04);
+  }
   box(design.width-.25,.04,.045,steel,tx,1.17,depth/2+.025);box(design.width-.3,.07,.07,steel,tx,.37,-depth/2+.08);
   // Bolted angle-frame benches: readable side gussets, levelling pads and a
   // rear diagonal load path. All details remain in the original material batches.
@@ -307,6 +331,17 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
       put(new THREE.BoxGeometry(.018,.05,1.4),steel,x,roofY+.04,-.85,roofSlope);
       for(const z of[-1.37,-.32])cyl(.018,.014,steel,x,roofY+.075-(z+.85)*Math.sin(roofSlope),z);
     }
+    // Folded side cheeks return beneath the eaves. They are shallow at the
+    // working edge, deep at the rear, and never descend into the instrument view.
+    for(const side of[-1,1]){
+      const profile=new THREE.Shape();
+      profile.moveTo(-.70,.01);profile.lineTo(.70,-.095);
+      profile.lineTo(.70,-.22);profile.lineTo(-.70,-.48);profile.closePath();
+      put(new THREE.ExtrudeGeometry(profile,{depth:.035,bevelEnabled:true,bevelThickness:.006,bevelSize:.01,bevelSegments:1,steps:1}),canopyPaint,side>0?1.95:-1.915,roofY-.035,-.85,0,-Math.PI/2);
+    }
+    // A high rear louvre transom shades paperwork without enclosing the kiosk.
+    // Its lowest edge is above head height and the hanging identity placard.
+    for(let row=0;row<4;row++)put(new THREE.BoxGeometry(3.70,.052,.12),cream,0,roofY-.17-row*.075,-1.29,-.45);
     box(3.76,.10,.075,steel,0,roofY-.13,-1.2);
     box(4,.105,.045,canopyPaint,0,roofY-.015,-1.55);
     // Open-topped gutter has a dark channel, two folded edges and end caps.

@@ -5,12 +5,13 @@ export function finishApolloMaterial(name: string, material: THREE.MeshStandardM
   const concrete = /^(building|service-building-trim|support-building-brick|concrete|curb|service-walkway)$/.test(name);
   const enamel = /^(stand-painted-enamel|stand-ivory-enamel|stand-safety-ochre|roof)$/.test(name);
   const brushed = /^(stand-brushed-steel|galvanized|utility-pipe|car-chrome|car-rim)$/.test(name);
+  const fabric = /^(technician-shirt-|technician-pants$)/.test(name);
   const terrain = name === 'terrain';
-  if (!concrete && !enamel && !brushed && !terrain) return;
-  const coarseScale = terrain ? .035 : concrete ? 1.6 : enamel ? 2.4 : 5;
-  const variation = terrain ? .20 : concrete ? .13 : enamel ? .055 : .035;
-  const grainScale = terrain ? 30 : concrete ? 90 : brushed ? 220 : 140;
-  const grainStrength = concrete ? .055 : .025;
+  if (!concrete && !enamel && !brushed && !terrain && !fabric) return;
+  const coarseScale = fabric ? 12 : terrain ? .035 : concrete ? 1.6 : enamel ? 2.4 : 5;
+  const variation = fabric ? .08 : terrain ? .20 : concrete ? .13 : enamel ? .055 : .035;
+  const grainScale = fabric ? 180 : terrain ? 30 : concrete ? 90 : brushed ? 220 : 140;
+  const grainStrength = fabric ? .018 : concrete ? .055 : .025;
   material.onBeforeCompile = shader => {
     shader.vertexShader = 'varying highp vec3 vApolloFinish;\n' + shader.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\nvApolloFinish = position;');

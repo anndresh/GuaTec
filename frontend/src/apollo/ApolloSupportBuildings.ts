@@ -90,7 +90,15 @@ export function buildSupportBuilding(
         facadeBox(.15, h + .22, .42, trim, u + side * (w / 2 + .06), y, .13);
         facadeBox(w + .28, .12, .38, trim, u, y + side * (h / 2 + .07), .13);
       }
-      facadeBox(w + .3, .1, .34, metal, u, y - h / 2 - .12, .17);
+      // Cast sill falls to a projecting drip nose rather than ending as a flat
+      // rectangular shelf. Its recessed underside keeps runoff off the facade.
+      const sill = new THREE.Shape();
+      sill.moveTo(-.02,.04);sill.lineTo(.36,-.015);sill.lineTo(.36,-.09);
+      sill.lineTo(.25,-.09);sill.lineTo(.25,-.06);sill.lineTo(-.02,-.06);sill.closePath();
+      const sillGeometry=new THREE.ExtrudeGeometry(sill,{depth:w+.3,bevelEnabled:false,steps:1});
+      sillGeometry.translate(0,0,-(w+.3)/2);sillGeometry.rotateY(-Math.PI/2);
+      add(sillGeometry,metal,cosine*u+sine*outside,y-h/2-.09,
+        -sine*u+cosine*outside,angle);
       if (split) {
         facadeBox(.07, h, .1, metal, u, y, .11);
         facadeBox(w, .06, .1, metal, u, y + h * .14, .11);

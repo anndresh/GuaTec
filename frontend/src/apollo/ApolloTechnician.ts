@@ -27,41 +27,76 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
     part.position.copy(a).add(b).multiplyScalar(.5);
     part.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());return part;
   }
-  const torso=mesh(new THREE.LatheGeometry([[.20,.91],[.205,.98],[.19,1.10],[.21,1.28],[.25,1.37],[.22,1.42],[.08,1.47]].map(([r,y])=>new THREE.Vector2(r,y)),20),shirt,0,0,0);
-  torso.scale.z=.67;
+  // Cross-sections give the face a jaw/cheek/brow silhouette and the shirt a
+  // fitted shoulder line. One continuous surface avoids overlapping face blobs.
+  function sections(rings: number[][], segments = 24) {
+    const vertices:number[]=[],indices:number[]=[];
+    for(const [y,rx,rz,cz] of rings)for(let i=0;i<=segments;i++){
+      const angle=i/segments*Math.PI*2;
+      vertices.push(Math.sin(angle)*rx,y,Math.cos(angle)*rz+cz);
+    }
+    for(let r=0;r<rings.length-1;r++)for(let i=0;i<segments;i++){
+      const a=r*(segments+1)+i,b=a+segments+1;
+      indices.push(a,a+1,b,b,a+1,b+1);
+    }
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
+    const normal=g.getAttribute('normal');
+    for(let r=0;r<rings.length;r++){
+      const first=r*(segments+1),last=first+segments;
+      const n=new THREE.Vector3().fromBufferAttribute(normal,first).add(new THREE.Vector3().fromBufferAttribute(normal,last)).normalize();
+      normal.setXYZ(first,n.x,n.y,n.z);normal.setXYZ(last,n.x,n.y,n.z);
+    }
+    // Every other primitive has UVs; retain that layout for material batching.
+    g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(vertices.length/3*2),2));return g;
+  }
+  mesh(sections([[.915,.195,.12,0],[.96,.207,.132,0],[1.07,.196,.13,0],[1.19,.208,.145,0],[1.31,.228,.14,0],[1.37,.245,.123,0],[1.41,.208,.105,0],[1.465,.075,.067,0]]),shirt,0,0,0);
   box(.40,.065,.275,leather,0,.93,0);
   box(.065,.05,.022,metal,0,.93,.15);
   // Placket, breast pockets, folded collars and clipped identification card.
-  box(.022,.36,.018,paper,0,1.20,.147);
-  for(let i=0;i<4;i++)sphere(.007,metal,0,1.04+i*.095,.16);
+  for(let i=0;i<4;i++){
+    const y=1.04+i*.095,z=y<1.12?.141:y<1.30?.151:.142;
+    sphere(.007,metal,0,y,z);
+  }
   for(const side of [-1,1]) {
-    box(.115,.12,.016,shirt,side*.12,1.28,.151);
-    box(.12,.012,.022,seam,side*.12,1.34,.161);
-    const collar=box(.085,.064,.025,paper,side*.055,1.43,.10);collar.rotation.z=side*.45;
+    // Follow the curved chest instead of hanging flat pocket plates ahead of it.
+    const pocket=new THREE.Group();pocket.position.set(side*.115,1.28,.124);pocket.rotation.y=side*.35;root.add(pocket);
+    box(.105,.12,.014,shirt,0,0,0,pocket);
+    box(.105,.008,.016,shirt,0,.06,.010,pocket);
+    if(side<0){
+      box(.060,.085,.010,paper,0,-.03,.017,pocket);
+      box(.050,.014,.012,metal,0,.018,.023,pocket);
+      box(.040,.005,.008,seam,0,-.025,.024,pocket);
+      box(.026,.004,.008,seam,-.005,-.045,.024,pocket);
+    }else cylinder(.006,.006,.10,leather,.012,.075,.012,pocket);
+    // No animation pivot here: keep pocket details in the shared torso batch.
+    root.updateMatrixWorld(true);for(const item of [...pocket.children])root.attach(item);pocket.removeFromParent();
+    const collar=box(.085,.064,.025,shirt,side*.055,1.43,.075);collar.rotation.z=side*.45;
     box(.02,.07,.018,seam,side*.17,.94,.14);
   }
-  box(.065,.09,.012,paper,-.12,1.25,.174);
-  box(.05,.018,.014,metal,-.12,1.30,.181);
-  box(.045,.006,.014,seam,-.12,1.25,.182);
-  box(.026,.005,.014,seam,-.13,1.23,.182);
-  cylinder(.006,.006,.1,leather,.125,1.36,.17);
 
   const head=new THREE.Group();head.name='technician-head';head.position.set(0,1.68,0);root.add(head);
   cylinder(.066,.075,.12,skin,0,-.20,0,head);
-  sphere(.144,skin,0,0,0,head).scale.set(1,1.23,.93);
-  sphere(.09,skin,0,-.10,.025,head).scale.set(.94,.68,1);
+  mesh(sections([[-.17,.045,.045,.012],[-.145,.082,.071,.018],[-.105,.108,.088,.012],[-.045,.134,.112,-.002],[.018,.14,.123,-.008],[.072,.137,.121,-.009],[.125,.12,.108,-.014],[.17,.071,.065,-.018],[.184,.002,.002,-.018]]),skin,0,0,0,head);
   // Eyes sit in shallow sockets, with small lids instead of oversized black blocks.
   for(const side of [-1,1]) {
     sphere(.027,skin,side*.144,-.01,0,head).scale.set(.55,1,.75);
-    sphere(.019,paper,side*.05,.018,.128,head).scale.set(1,.55,.3);
-    sphere(.008,leather,side*.05,.018,.135,head).scale.set(.75,1,.4);
-    box(.044,.007,.014,hair,side*.05,.045,.128,head);
-    box(.035,.005,.012,skin,side*.05,.030,.138,head);
+    sphere(.017,paper,side*.05,.018,.112,head).scale.set(1,.50,.30);
+    sphere(.007,leather,side*.05,.018,.118,head).scale.set(.75,1,.4);
+    box(.044,.007,.014,hair,side*.05,.043,.111,head);
+    box(.035,.005,.012,skin,side*.05,.028,.118,head);
   }
-  sphere(.026,skin,0,-.025,.14,head).scale.set(.65,1.18,1.25);
-  box(.045,.004,.008,hair,0,-.09,.128,head);
-  const hairCap=mesh(new THREE.SphereGeometry(.146,16,8,0,Math.PI*2,0,1.45),hair,0,.04,-.01,head);hairCap.scale.set(1,1.05,.94);
-  for(const side of [-1,1])box(.018,.07,.025,hair,side*.13,.014,-.005,head);
+  sphere(.023,skin,0,-.025,.119,head).scale.set(.70,1.15,1.35);
+  box(.041,.0025,.006,hair,0,-.092,.114,head);
+  const scalp=new THREE.SphereGeometry(.153,24,12,0,Math.PI*2,0,1.60);
+  const hairPoints=scalp.getAttribute('position');
+  for(let i=0;i<hairPoints.count;i++){
+    const x=hairPoints.getX(i),y=hairPoints.getY(i),z=hairPoints.getZ(i);
+    const edge=1-Math.min(1,y/.153);
+    // Front swept hairline, lower at the nape; asymmetric part breaks the bowl.
+    hairPoints.setXYZ(i,x,y+edge*(z>0?.045+Math.sin(x*22)*.012:-.025),z*.96);
+  }
+  scalp.computeVertexNormals();mesh(scalp,hair,0,.040,-.015,head);
+  for(const side of [-1,1])box(.015,.045,.024,hair,side*.132,.006,-.015,head);
   if(role==='complex') {
     const helmet=mesh(new THREE.SphereGeometry(.172,16,10,0,Math.PI*2,0,Math.PI/2),paper,0,.09,0,head);helmet.scale.y=.72;
     cylinder(.187,.187,.018,paper,0,.09,0,head);
@@ -74,10 +109,10 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
   }
   if(role==='documentation') {
     for(const side of [-1,1]) {
-      const rim=mesh(new THREE.TorusGeometry(.032,.0035,5,18),leather,side*.05,.018,.145,head);rim.scale.y=.83;
-      box(.007,.007,.11,leather,side*.095,.018,.09,head);
+      const rim=mesh(new THREE.TorusGeometry(.032,.0035,5,18),leather,side*.05,.018,.131,head);rim.scale.y=.83;
+      box(.007,.007,.11,leather,side*.095,.018,.076,head);
     }
-    box(.035,.005,.008,leather,0,.018,.149,head);
+    box(.035,.005,.008,leather,0,.018,.135,head);
   }
   if(role==='communications') {
     const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-.16,0,0),new THREE.Vector3(-.17,.15,0),new THREE.Vector3(0,.21,-.02),new THREE.Vector3(.17,.15,0),new THREE.Vector3(.16,0,0)]);
@@ -105,14 +140,18 @@ export function buildTechnician(role: string, mat: MaterialFactory) {
   });
   const arms=[-1,1].map(side=>{
     const shoulder=new THREE.Group();shoulder.name=side<0?'left-shoulder':'right-shoulder';shoulder.position.set(side*.235,1.37,0);root.add(shoulder);
-    sphere(.075,shirt,0,-.025,0,shoulder).scale.set(1,1.15,1);
-    beam(new THREE.Vector3(0,-.03,0),new THREE.Vector3(side*.07,-.23,.025),.065,shirt,shoulder);
+    const upper=mesh(new THREE.CapsuleGeometry(.067,.145,4,12),shirt,side*.035,-.10,.012,shoulder);
+    upper.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(-side*.07,.23,-.025).normalize());
     const elbow=new THREE.Group();elbow.name='elbow';elbow.position.set(side*.07,-.25,.025);shoulder.add(elbow);
-    cylinder(.058,.058,.035,paper,0,.015,0,elbow);
+    cylinder(.060,.060,.018,shirt,0,.015,0,elbow);
     beam(new THREE.Vector3(),new THREE.Vector3(-side*.035,-.13,.18),.044,skin,elbow);
     const hand=new THREE.Group();hand.name='hand';hand.position.set(-side*.035,-.145,.20);hand.rotation.x=-.65;elbow.add(hand);
     sphere(.042,skin,0,0,0,hand).scale.set(.8,1.1,.55);
-    for(let i=0;i<4;i++)beam(new THREE.Vector3(-.025+i*.016,-.018,0),new THREE.Vector3(-.025+i*.016,-.057+(i===0||i===3?.008:0),.018),.008,skin,hand);
+    for(let i=0;i<4;i++){
+      const x=-.025+i*.016,length=i===0||i===3?.031:.039;
+      beam(new THREE.Vector3(x,-.018,0),new THREE.Vector3(x,-.018-length,.006),.008,skin,hand);
+      beam(new THREE.Vector3(x,-.018-length,.006),new THREE.Vector3(x,-.023-length,.023),.007,skin,hand);
+    }
     beam(new THREE.Vector3(side*.027,.005,0),new THREE.Vector3(side*.047,-.026,.018),.012,skin,hand);
     if(side===1&&role==='documentation'){
       // The board follows the hand rather than floating beside the body.
