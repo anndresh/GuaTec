@@ -57,7 +57,7 @@ const DOCUMENTS: DocumentId[] = ["privacy", "terms", "contact"];
 const copy: Record<Language, LegalCopy> = {
   es: {
     project: "GuaTec",
-    lastUpdated: "Última actualización: 8 de octubre de 2026",
+    lastUpdated: "Última actualización: 15 de noviembre de 2026",
     languageLabel: "Idioma",
     languages: { es: "Español", en: "English", fr: "Français" },
     documents: {
@@ -78,7 +78,7 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Política de privacidad",
-        lastUpdated: "Última actualización: 7 de noviembre de 2026",
+        lastUpdated: "Última actualización: 15 de noviembre de 2026",
         introduction:
           "Esta política describe los datos tratados al usar GuaTec, incluido el acceso de Invitado y el guardado de Apollo 11, sus finalidades y las opciones para consultar o eliminar tu información.",
         sections: [
@@ -129,7 +129,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Términos y condiciones de uso",
-        lastUpdated: "Última actualización: 7 de noviembre de 2026",
+        lastUpdated: "Última actualización: 15 de noviembre de 2026",
         introduction:
           "Al acceder a GuaTec aceptas estas condiciones. Si no estás de acuerdo, no crees una cuenta ni continúes usando el servicio.",
         sections: [
@@ -206,7 +206,7 @@ const copy: Record<Language, LegalCopy> = {
   },
   en: {
     project: "GuaTec",
-    lastUpdated: "Last updated: October 8, 2026",
+    lastUpdated: "Last updated: November 15, 2026",
     languageLabel: "Language",
     languages: { es: "Español", en: "English", fr: "Français" },
     documents: {
@@ -227,7 +227,7 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Privacy policy",
-        lastUpdated: "Last updated: November 7, 2026",
+        lastUpdated: "Last updated: November 15, 2026",
         introduction:
           "This policy describes the data processed when using GuaTec, including Guest access and Apollo 11 saves, why it is used, and how to request access to or deletion of your information.",
         sections: [
@@ -278,7 +278,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Terms and conditions of use",
-        lastUpdated: "Last updated: November 7, 2026",
+        lastUpdated: "Last updated: November 15, 2026",
         introduction:
           "By accessing GuaTec, you agree to these terms. If you do not agree, do not create an account or continue using the service.",
         sections: [
@@ -355,7 +355,7 @@ const copy: Record<Language, LegalCopy> = {
   },
   fr: {
     project: "GuaTec",
-    lastUpdated: "Dernière mise à jour : 8 octobre 2026",
+    lastUpdated: "Dernière mise à jour : 15 novembre 2026",
     languageLabel: "Langue",
     languages: { es: "Español", en: "English", fr: "Français" },
     documents: {
@@ -376,7 +376,7 @@ const copy: Record<Language, LegalCopy> = {
     pages: {
       privacy: {
         title: "Politique de confidentialité",
-        lastUpdated: "Dernière mise à jour : 7 novembre 2026",
+        lastUpdated: "Dernière mise à jour : 15 novembre 2026",
         introduction:
           "Cette politique décrit les données traitées lors de l’utilisation de GuaTec, y compris l’accès Invité et les sauvegardes d’Apollo 11, leurs finalités et les moyens de demander l’accès à vos informations ou leur suppression.",
         sections: [
@@ -427,7 +427,7 @@ const copy: Record<Language, LegalCopy> = {
       },
       terms: {
         title: "Conditions générales d’utilisation",
-        lastUpdated: "Dernière mise à jour : 7 novembre 2026",
+        lastUpdated: "Dernière mise à jour : 15 novembre 2026",
         introduction:
           "En accédant à GuaTec, vous acceptez ces conditions. Si vous n'êtes pas d'accord, ne créez pas de compte et n'utilisez pas le service.",
         sections: [
