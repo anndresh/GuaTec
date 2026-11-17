@@ -98,11 +98,10 @@ export function createAstronautCharacter(B: BabylonNamespace, scene: BABYLON.Sce
   sphere("engineer-neck", 0, 1.49, 0, 0.09, 0.12, 0.09, skin);
   headSphere("engineer-head", 0, 1.635, 0.002, 0.16, 0.235, 0.17, skin);
   headSphere("engineer-jaw", 0, 1.565, 0.022, 0.132, 0.095, 0.135, skin);
-  const eyeMeshes: BABYLON.Mesh[] = [];
+  const eyelidPivot = pivot("engineer-blink-pivot", 0, 1.654 - 1.61, 0.080, headPivot);
   for (const side of [-1, 1]) {
     headSphere(`engineer-ear-${side}`, side * 0.081, 1.635, 0, 0.027, 0.052, 0.024, skin);
-    const eyeSocket = pivot(`engineer-eye-socket-${side}`, side * 0.032, 1.654 - 1.61, 0.080, headPivot);
-    eyeMeshes.push(sphere(`engineer-eye-${side}`, 0, 0, 0, 0.018, 0.008, 0.008, sole, eyeSocket));
+    sphere(`engineer-eye-${side}`, side * 0.032, 0, 0, 0.018, 0.008, 0.008, sole, eyelidPivot);
     const brow = headBox(`engineer-brow-${side}`, side * 0.033, 1.673, 0.077, 0.028, 0.005, 0.007, sole); brow.rotation.z = side * 0.07;
   }
   headSphere("engineer-nose-bridge", 0, 1.637, 0.084, 0.021, 0.045, 0.025, skin);
@@ -179,7 +178,7 @@ export function createAstronautCharacter(B: BabylonNamespace, scene: BABYLON.Sce
       if (blinkClock > 3.2 + (options.role === "director" ? 0.8 : 0)) { blinkClock = 0; blinkAmount = 0.12; }
       blinkAmount = Math.max(0, blinkAmount - dt);
       const eyeOpen = 1 - Math.sin((1 - blinkAmount / 0.12) * Math.PI) * 0.92;
-      for (const eye of eyeMeshes) eye.scaling.y = 0.008 * Math.max(0.08, eyeOpen);
+      eyelidPivot.scaling.y = Math.max(0.08, eyeOpen);
     },
     dispose() {
       if (disposed) return; disposed = true;
