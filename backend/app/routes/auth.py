@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import User
-from app.utils.auth_tokens import issue_token
+from app.utils.auth_tokens import get_current_user_id, issue_token
 from app.utils.oauth_clients import (
     OAuthNotConfiguredError,
     exchange_github_code,
@@ -187,9 +187,13 @@ def register():
     if error:
         return jsonify({"error": "validation_error", "message": error}), 400
 
-    existing = User.query.filter_by(email=email).first()
+    existing = User.query.filter_by(email=email).with_for_update().first()
     if existing is not None:
-        if existing.oauth_provider in {"google", "github"} and not existing.password_hash:
+        if (
+            existing.oauth_provider in {"google", "github"}
+            and not existing.password_hash
+            and get_current_user_id() == existing.id
+        ):
             existing.set_password(password)
             db.session.commit()
             return jsonify({"token": issue_token(existing.id), "user": existing.to_dict()}), 201
