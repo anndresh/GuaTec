@@ -18,7 +18,8 @@ def create_app(env_name: str | None = None) -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(get_config(env_name))
 
-    os.makedirs(app.instance_path, exist_ok=True)
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:"):
+        os.makedirs(app.instance_path, exist_ok=True)
 
     db.init_app(app)
     migrate.init_app(app, db)
