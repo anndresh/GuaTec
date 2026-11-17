@@ -97,9 +97,10 @@ def exchange_github_code(code: str) -> dict:
     token_resp.raise_for_status()
     access_token = token_resp.json()["access_token"]
 
+    headers = {"Authorization": f"Bearer {access_token}"}
     profile_resp = requests.get(
         "https://api.github.com/user",
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers=headers,
         timeout=10,
     )
     profile_resp.raise_for_status()
@@ -107,7 +108,7 @@ def exchange_github_code(code: str) -> dict:
     if not profile.get("email"):
         emails_resp = requests.get(
             "https://api.github.com/user/emails",
-            headers={"Authorization": f"******"},
+            headers=headers,
             timeout=10,
         )
         emails_resp.raise_for_status()
