@@ -120,8 +120,17 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     const list = destination.get(material) ?? []; list.push(nonIndexed); destination.set(material, list);
   };
   const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, ry = 0) => put(new THREE.BoxGeometry(w, h, d), material, x, y, z, 0, ry);
-  const cyl = (r: number, h: number, material: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => put(new THREE.CylinderGeometry(r, r, h, 12), material, x, y, z, rx, 0, rz);
-  const tube = (points: number[][], radius: number, material: THREE.Material) => put(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2]))), points.length===2?1:Math.min(18,(points.length-1)*3), radius, 6, false), material, 0, 0, 0);
+  // Keep round silhouettes on the reels and gauges. Small fasteners and
+  // narrow fittings need fewer sides at the normal exploration distance.
+  const cyl = (r: number, h: number, material: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => {
+    const sides = r <= .035 ? 6 : r <= .09 ? 8 : 12;
+    put(new THREE.CylinderGeometry(r, r, h, sides), material, x, y, z, rx, 0, rz);
+  };
+  const tube = (points: number[][], radius: number, material: THREE.Material) => {
+    const path = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+    const segments = points.length === 2 ? 1 : Math.min(18, (points.length - 1) * 2);
+    put(new THREE.TubeGeometry(path, segments, radius, radius <= .025 ? 5 : 6, false), material, 0, 0, 0);
+  };
   const sideGusset = (x:number,y:number,z:number,rise:number,reach:number,material:THREE.Material,slope=0) => {
     const profile=new THREE.Shape();profile.moveTo(0,0);profile.lineTo(reach,slope);profile.lineTo(0,-rise);profile.closePath();
     // Local X becomes station Z: a thin triangular cheek, not a solid console side.
@@ -155,7 +164,7 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     const s = new THREE.Shape(), r = .09;
     s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
     s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
-    put(new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 1, steps: 1, curveSegments: 3 }), material, x, y, z);
+    put(new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 1, steps: 1, curveSegments: 2 }), material, x, y, z);
   };
   // Folded equipment chassis with a raked upper return and a recessed rear.
   // The front plane stays fixed so existing scales, sockets and moving controls
@@ -269,7 +278,7 @@ export function buildStandModel(kind: StandModelKind, mat: StandMaterialFactory,
     profile.quadraticCurveTo(w/2,d/2,w/2-r,d/2);profile.lineTo(-w/2+r,d/2);
     profile.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r);profile.lineTo(-w/2,-d/2+r);
     profile.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
-    put(new THREE.ExtrudeGeometry(profile,{depth:h,bevelEnabled:true,bevelSize:.008,bevelThickness:.005,bevelSegments:1,curveSegments:4,steps:1}),material,tx,y,.04,-Math.PI/2);
+    put(new THREE.ExtrudeGeometry(profile,{depth:h,bevelEnabled:true,bevelSize:.008,bevelThickness:.005,bevelSegments:1,curveSegments:2,steps:1}),material,tx,y,.04,-Math.PI/2);
   };
   counter(design.width-.016,depth-.016,.10,.085,dark,.99);
   counter(design.width-.056,depth-.056,.045,.095,paint,1.0975);
