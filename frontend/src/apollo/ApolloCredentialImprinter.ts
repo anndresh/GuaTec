@@ -62,7 +62,14 @@ export function mountCredentialImprinter(host:HTMLElement,options:ImprinterOptio
     paint();if(complete)options.onComplete();
   }
   const listen=<E extends Event>(event:string,handler:(event:E)=>void)=>roller.addEventListener(event,handler as EventListener,{signal:options.signal});
-  listen<PointerEvent>('pointerdown',event=>{if(event.button!==0||!event.isPrimary)return;roller.focus({preventScroll:true});begin(event.pointerId,event.clientX);});
+  listen<PointerEvent>('pointerdown',event=>{
+    if(event.button!==0||!event.isPrimary)return;
+    // WebKit's mouse focus action can blur the explicitly focused roller and
+    // cancel the stroke before the first movement.
+    event.preventDefault();
+    roller.focus({preventScroll:true});
+    begin(event.pointerId,event.clientX);
+  });
   listen<PointerEvent>('pointermove',event=>{if(!stroke||stroke.pointer!==event.pointerId)return;progress=stroke.travel=Math.max(0,Math.min(1,(event.clientX-stroke.startX)/stroke.span));paint();});
   listen<PointerEvent>('pointerup',event=>{if(stroke?.pointer===event.pointerId)finish();});
   listen('pointercancel',()=>cancel(true));listen('lostpointercapture',()=>cancel(true));listen('blur',()=>cancel());

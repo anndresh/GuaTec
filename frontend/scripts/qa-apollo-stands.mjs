@@ -1,20 +1,24 @@
 /** Browser acceptance checks for real stand input, responsive layout and teardown.
  * Run against the local Vite server. Playwright may be provided by the host runtime:
  * PLAYWRIGHT_MODULE_PATH=/absolute/path/to/playwright CHROME_BIN=/path/to/chrome npm run qa:apollo
+ * APOLLO_QA_BROWSER=webkit npm run qa:apollo uses WebKit with pointer input on narrow layouts.
  * Fixtures are intercepted by Playwright and never added to the shipped game. */
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 const require = createRequire(import.meta.url);
-let chromium;
-try { ({chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')); }
+let playwright;
+try { playwright=require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright'); }
 catch { throw new Error('Provide Playwright with PLAYWRIGHT_MODULE_PATH, or install playwright in the frontend development environment.'); }
+const browserName=process.env.APOLLO_QA_BROWSER||'chromium';
+assert.ok(['chromium','webkit'].includes(browserName),'Choose chromium or webkit.');
+const isChromium=browserName==='chromium';
 const base = process.env.APOLLO_QA_URL || 'http://127.0.0.1:5173';
 const url = new URL(base);
 if (!['127.0.0.1','localhost','[::1]'].includes(url.hostname)) throw new Error('Run these fixtures against a local development server.');
-const out = resolve('artifacts/apollo-qa'); await mkdir(out,{recursive:true});
-const browser = await chromium.launch({headless:true,...(process.env.CHROME_BIN ? {executablePath:process.env.CHROME_BIN} : {})});
+const out = resolve(isChromium?'artifacts/apollo-qa':'artifacts/apollo-qa-webkit'); await mkdir(out,{recursive:true});
+const browser = await playwright[browserName].launch({headless:true,...(isChromium&&process.env.CHROME_BIN ? {executablePath:process.env.CHROME_BIN} : {})});
 const page = await browser.newPage({viewport:{width:1440,height:900}});
 const errors=[], checks=[];
 page.on('pageerror',e=>errors.push(e.message));
@@ -56,12 +60,24 @@ const assign = async (order,keyboard=false) => {
  }
 };
 const range = async (name,value) => {
- const control=page.getByRole('slider',{name}),r=await control.boundingBox(),max=Number(await control.getAttribute('max'));
+ const control=page.getByRole('slider',{name});
+ if(name==='Palanca de alimentación'){
+   await control.focus();
+   await page.keyboard.press('End');
+   return;
+ }
+ const r=await control.boundingBox(),max=Number(await control.getAttribute('max'));
  await page.mouse.click(r.x+8+(r.width-16)*value/max,r.y+r.height/2);
+ await control.focus();
+ const remaining=value-Number(await control.inputValue());
+ for(let i=0;i<Math.abs(remaining);i++) await page.keyboard.press(remaining>0?'ArrowRight':'ArrowLeft');
+ assert.equal(Number(await control.inputValue()),value);
 };
 const finish = async () => {await page.waitForFunction(()=>window.completed===1,{timeout:5000});};
 const imprint=async(travel=1)=>{
- const handle=page.locator('.ap-imprinter-roller'),a=await handle.boundingBox(),span=await handle.evaluate(el=>el.parentElement.clientWidth-98);
+ const handle=page.locator('.ap-imprinter-roller');
+ await handle.scrollIntoViewIfNeeded();
+ const a=await handle.boundingBox(),span=await handle.evaluate(el=>el.parentElement.clientWidth-98);
  await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();
  for(let n=1;n<=15;n++){await page.mouse.move(a.x+a.width/2+span*travel*n/15,a.y+a.height/2);await page.waitForTimeout(50);}
  await page.mouse.up();
@@ -88,19 +104,28 @@ try {
  await page.locator('.ap-imprinter-roller').focus();await page.keyboard.down('Space');await page.waitForTimeout(1000);await page.keyboard.up('Space');assert.equal(await page.locator('[data-recorded=true]').count(),2);
  const credentials=await page.evaluate(()=>handle.snapshot());await open('crew-manifest',credentials);assert.equal(await page.locator('[data-recorded=true]').count(),2);
  await page.setViewportSize({width:390,height:844});await page.locator('.ap-imprinter-track').scrollIntoViewIfNeeded();
- const reader=await page.locator('.ap-imprinter-roller').boundingBox(),travel=await page.locator('.ap-imprinter-track').evaluate(el=>el.clientWidth-98),readerCdp=await page.context().newCDPSession(page);
- await readerCdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:reader.x+reader.width/2,y:reader.y+reader.height/2}]});
- await readerCdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:reader.x+reader.width/2+travel*.4,y:reader.y+reader.height/2}]});await readerCdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});assert.equal(await page.locator('[data-recorded=true]').count(),2);
- await readerCdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:reader.x+reader.width/2,y:reader.y+reader.height/2}]});
- for(let n=1;n<=12;n++){await readerCdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:reader.x+reader.width/2+travel*n/12,y:reader.y+reader.height/2}]});await page.waitForTimeout(65);}
- await readerCdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await readerCdp.detach();await finish();await page.setViewportSize({width:1440,height:900});
- checks.push('Crew: incomplete stroke rejected; mouse, Space hold, native touch and restored credentials verified.');
- await open('cables');await assign([2,0,3,1]);assert.equal(await page.locator('.ap-patch-wires path').count(),4);await page.screenshot({path:resolve(out,'cables-connected.png')});
- await page.getByRole('button',{name:'Probar continuidad'}).click();await finish();checks.push('Cables: four visible curves and continuity verification succeed.');
+ if(isChromium){
+   const reader=await page.locator('.ap-imprinter-roller').boundingBox(),travel=await page.locator('.ap-imprinter-track').evaluate(el=>el.clientWidth-98),readerCdp=await page.context().newCDPSession(page);
+   await readerCdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:reader.x+reader.width/2,y:reader.y+reader.height/2}]});
+   await readerCdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:reader.x+reader.width/2+travel*.4,y:reader.y+reader.height/2}]});await readerCdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});assert.equal(await page.locator('[data-recorded=true]').count(),2);
+   await readerCdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:reader.x+reader.width/2,y:reader.y+reader.height/2}]});
+   for(let n=1;n<=12;n++){await readerCdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:reader.x+reader.width/2+travel*n/12,y:reader.y+reader.height/2}]});await page.waitForTimeout(65);}
+   await readerCdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await readerCdp.detach();
+ }else await imprint();
+ await finish();await page.setViewportSize({width:1440,height:900});
+ checks.push(`Crew: incomplete stroke rejected; mouse, Space hold, ${isChromium?'native touch':'narrow pointer input'} and restored credentials verified.`);
+ await open('cables');await assign([0,1,2,3]);
+ await page.getByRole('button',{name:'Probar continuidad'}).click();assert.equal(await page.evaluate(()=>window.completed),0);
+ assert.match(await page.locator('.ap-stand-feedback').innerText(),/Continuidad interrumpida/);
+ await assign([2,0,3,1]);assert.equal(await page.locator('.ap-patch-wires path').count(),4);await page.screenshot({path:resolve(out,'cables-connected.png')});
+ await page.getByRole('button',{name:'Probar continuidad'}).click();await finish();checks.push('Cables: mismatched links rejected; four visible curves and continuity verification succeed.');
  await open('telemetry');await page.getByRole('button',{name:'Fijar enlace'}).click();assert.equal(await page.evaluate(()=>window.completed),0);
  for(const [name,value]of[['S-IVB',62],['Enlace',74],['Plataforma',58]])await range(name,value);
  await page.getByRole('button',{name:'Fijar enlace'}).click();await finish();checks.push('Telemetry: misalignment rejected; all three tuners verified.');
- await open('weather');await range('Rumbo de veleta',225);await range('Obturador de nubosidad',35);await page.getByRole('button',{name:'Sellar parte de observación'}).click();await finish();checks.push('Weather: vane and cloud plate matched.');
+ await open('weather');await page.getByRole('button',{name:'Sellar parte de observación'}).click();
+ assert.equal(await page.evaluate(()=>window.completed),0);
+ assert.match(await page.locator('.ap-stand-feedback').innerText(),/no coincide/);
+ await range('Rumbo de veleta',225);await range('Obturador de nubosidad',35);await page.getByRole('button',{name:'Sellar parte de observación'}).click();await finish();checks.push('Weather: mismatched readings rejected; vane and cloud plate matched.');
  await page.evaluate(()=>{const arc=CanvasRenderingContext2D.prototype.arc;CanvasRenderingContext2D.prototype.arc=function(x,y,r,...args){if(r===35)window.reticle=[x,y];return arc.call(this,x,y,r,...args)}});
  await open('beacons');const r=await page.locator('.ap-perimeter canvas').boundingBox();
  await page.locator('.ap-perimeter canvas').focus();await page.keyboard.down('ArrowRight');await page.waitForTimeout(100);
@@ -123,12 +148,18 @@ try {
    }
  }
  await open('cables');await page.locator('.ap-patch-board').scrollIntoViewIfNeeded();
- const a=await page.locator('[data-item="2"]').boundingBox(),b=await page.locator('[data-slot="0"]').boundingBox(),cdp=await page.context().newCDPSession(page);
- await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2}]});
- for(let n=1;n<=12;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:a.x+a.width/2+(b.x+b.width/2-a.x-a.width/2)*n/12,y:a.y+a.height/2+(b.y+b.height/2-a.y-a.height/2)*n/12}]});
- await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.match(await page.locator('[data-slot="0"] strong').innerText(),/C \/ CANAL 3/);
- const cancel=await page.locator('[data-item="1"]').boundingBox();await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cancel.x+15,y:cancel.y+15}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cancel.x+55,y:cancel.y+25}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});assert.equal(await page.locator('.ap-placement-ghost').count(),0);await cdp.detach();
- checks.push('Touch: native 390px drag succeeds and cancellation removes the drag ghost.');
+ if(isChromium){
+   const a=await page.locator('[data-item="2"]').boundingBox(),b=await page.locator('[data-slot="0"]').boundingBox(),cdp=await page.context().newCDPSession(page);
+   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2}]});
+   for(let n=1;n<=12;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:a.x+a.width/2+(b.x+b.width/2-a.x-a.width/2)*n/12,y:a.y+a.height/2+(b.y+b.height/2-a.y-a.height/2)*n/12}]});
+   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.match(await page.locator('[data-slot="0"] strong').innerText(),/C \/ CANAL 3/);
+   const cancel=await page.locator('[data-item="1"]').boundingBox();await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cancel.x+15,y:cancel.y+15}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cancel.x+55,y:cancel.y+25}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});assert.equal(await page.locator('.ap-placement-ghost').count(),0);await cdp.detach();
+   checks.push('Touch: native 390px drag succeeds and cancellation removes the drag ghost.');
+ }else{
+   await drag(2,0);
+   assert.match(await page.locator('[data-slot="0"] strong').innerText(),/C \/ CANAL 3/);
+   checks.push('Pointer: narrow layout drag succeeds.');
+ }
  await page.getByRole('button',{name:'Volver al recorrido'}).click();await page.waitForTimeout(1000);assert.equal(await page.locator('.ap-stand').count(),0);assert.equal(await page.evaluate(()=>window.completed),0);checks.push('Teardown: no late completion after cancellation.');
  assert.deepEqual(errors,[]);
  const diagnostics=await page.evaluate(()=>world.diagnostics());
