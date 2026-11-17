@@ -1,2 +1,19 @@
+[project]
+name = "guatec-api"
+version = "0.1.0"
+# Vercel reads this manifest when a custom Flask entrypoint is configured.
+# Keep the API dependency pins aligned with requirements.txt.
+dependencies = [
+    "Flask==3.0.3",
+    "Flask-Cors==4.0.1",
+    "Flask-SQLAlchemy==3.1.1",
+    "Flask-Migrate==4.0.7",
+    "python-dotenv==1.0.1",
+    "Authlib==1.3.2",
+    "requests==2.32.3",
+    "PyJWT==2.9.0",
+    "psycopg[binary]>=3.2,<4",
+]
+
 [tool.vercel]
 entrypoint = "api.index:app"
