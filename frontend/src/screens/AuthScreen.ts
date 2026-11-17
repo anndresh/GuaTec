@@ -7,6 +7,7 @@ import type { Credentials, ProviderInfo } from "@/types";
 import { getLanguage, t } from "@/core/i18n";
 import { API_BASE_URL } from "@/config/gameConfig";
 import {accountErrorText} from '@/core/apiErrorCopy';
+import { prepareGooglePopup, type GoogleAuthPopup } from "@/core/googleOAuth";
 
 /** Provider-choice screen: email/password, Google, GitHub, or Guest. */
 export class AuthScreen implements Screen {
@@ -50,12 +51,30 @@ export class AuthScreen implements Screen {
           }),
         ],
       });
-      if (!provider.configured) {
-        button.setAttribute("disabled", "true");
-      } else {
-        button.addEventListener('click',()=>{
-          if(this.providerPending||this.passwordPending)return;this.providerPending=true;button.disabled=true;providerError.textContent='';
-          void this.handleProviderClick(provider.id).catch(error=>{if(panel.isConnected)providerError.textContent=this.extractErrorMessage(error);}).finally(()=>{this.providerPending=false;button.disabled=false;});
+      button.disabled = !provider.configured;
+      if (provider.configured) {
+        let googlePopup: GoogleAuthPopup | undefined;
+        if (provider.id === "google" && provider.popupClientId) {
+          button.disabled = true;
+          void prepareGooglePopup(provider.popupClientId).then((popup) => {
+            googlePopup = popup;
+            button.disabled = false;
+          }).catch((error: unknown) => {
+            if (panel.isConnected) providerError.textContent = this.extractErrorMessage(error);
+          });
+        }
+        button.addEventListener("click", () => {
+          if (this.providerPending || this.passwordPending) return;
+          this.providerPending = true;
+          button.disabled = true;
+          providerError.textContent = "";
+          const login = googlePopup ? this.handleGooglePopup(googlePopup) : this.handleProviderClick(provider.id);
+          void login.catch((error: unknown) => {
+            if (panel.isConnected) providerError.textContent = this.extractErrorMessage(error);
+          }).finally(() => {
+            this.providerPending = false;
+            button.disabled = false;
+          });
         });
       }
       list.append(button);
@@ -257,6 +276,24 @@ export class AuthScreen implements Screen {
     }
 
     window.location.href = `${API_BASE_URL}/auth/${providerId}/login`;
+  }
+
+  private async handleGooglePopup(openPopup: GoogleAuthPopup): Promise<void> {
+    const code = await openPopup();
+    if (!code || !this.container?.isConnected) return;
+
+    const { token, user } = await authApi.loginGoogle(code);
+    if (!this.container?.isConnected) return;
+    AuthStore.setToken(token);
+    this.app.currentUser = user;
+    if (user.hasUsername) {
+      await this.app.showMissionSelect();
+    } else if (user.email) {
+      AuthStore.setPendingOAuthEmail(user.email);
+      await this.app.showAuth();
+    } else {
+      await this.app.showUsername();
+    }
   }
 
   private extractErrorMessage(err: unknown): string {

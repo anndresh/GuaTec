@@ -82,6 +82,7 @@ class BaseConfig:
     GOOGLE_REDIRECT_URI = _env_or_default(
         "GOOGLE_REDIRECT_URI", "http://localhost:5050/api/auth/google/callback"
     )
+    GOOGLE_POPUP_ENABLED = _bool_env("GOOGLE_POPUP_ENABLED")
 
     GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID") or ""
     GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET") or ""

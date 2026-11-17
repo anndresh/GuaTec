@@ -24,6 +24,7 @@ export interface ProviderInfo {
   id: "google" | "github" | "guest";
   label: string;
   configured: boolean;
+  popupClientId?: string;
 }
 
 export interface NasaMissionBriefing {

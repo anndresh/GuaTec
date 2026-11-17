@@ -1,9 +1,9 @@
 from __future__ import annotations
 import secrets
 
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
-from flask import Blueprint, jsonify, redirect, request, session
+from flask import Blueprint, current_app, jsonify, redirect, request, session
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -47,10 +47,19 @@ def list_providers():
     """Tells the frontend which OAuth providers are actually usable so the
     "choose provider" screen can grey out/hide unconfigured ones, and always
     offer the guest fallback."""
+    google_popup = current_app.config["GOOGLE_POPUP_ENABLED"]
+    google = {
+        "id": "google",
+        "label": "Google",
+        "configured": google_is_configured()
+        and (not google_popup or request.args.get("googlePopup") == "1"),
+    }
+    if google_popup and google["configured"]:
+        google["popupClientId"] = current_app.config["GOOGLE_CLIENT_ID"]
     return jsonify(
         {
             "providers": [
-                {"id": "google", "label": "Google", "configured": google_is_configured()},
+                google,
                 {"id": "github", "label": "GitHub", "configured": github_is_configured()},
                 {"id": "guest", "label": "Invitado", "configured": True},
             ]
@@ -60,6 +69,8 @@ def list_providers():
 
 @auth_bp.get("/google/login")
 def google_login():
+    if current_app.config["GOOGLE_POPUP_ENABLED"]:
+        return jsonify({"error": "google_popup_required"}), 400
     state = secrets.token_urlsafe(16)
     try:
         url = google_authorize_url(state)
@@ -69,22 +80,39 @@ def google_login():
     return redirect(url)
 
 
-@auth_bp.get("/google/callback")
+@auth_bp.route("/google/callback", methods=["GET", "POST"])
 def google_callback():
-    state = request.args.get("state")
-    if not state or state != _consume_oauth_state("google"):
-        return jsonify({"error": "invalid_oauth_state"}), 400
-    code = request.args.get("code")
-    if not code:
+    popup = request.method == "POST"
+    redirect_uri = None
+    if popup:
+        if not current_app.config["GOOGLE_POPUP_ENABLED"]:
+            return jsonify({"error": "google_not_configured"}), 501
+        frontend = urlsplit(current_app.config["FRONTEND_URL"])
+        redirect_uri = f"{frontend.scheme}://{frontend.netloc}"
+        if (
+            request.headers.get("Origin") != redirect_uri
+            or request.headers.get("X-Requested-With") != "XMLHttpRequest"
+        ):
+            return jsonify({"error": "invalid_oauth_origin"}), 403
+        body = request.get_json(silent=True)
+        code = body.get("code") if isinstance(body, dict) else None
+    else:
+        state = request.args.get("state")
+        if not state or state != _consume_oauth_state("google"):
+            return jsonify({"error": "invalid_oauth_state"}), 400
+        code = request.args.get("code")
+
+    if not isinstance(code, str) or not code.strip():
         return jsonify({"error": "missing_code"}), 400
     try:
-        profile = exchange_google_code(code)
+        profile = exchange_google_code(code, redirect_uri=redirect_uri)
     except OAuthNotConfiguredError:
         return jsonify({"error": "google_not_configured"}), 501
     except Exception as exc:  # noqa: BLE001 - surface upstream failure clearly
         return jsonify({"error": "oauth_exchange_failed", "detail": str(exc)}), 502
 
-    if not profile.get("email") or profile.get("email_verified") is False:
+    email_verified = profile.get("verified_email", profile.get("email_verified"))
+    if not profile.get("email") or email_verified is not True:
         return jsonify({"error": "oauth_email_unverified"}), 400
 
     user = _upsert_oauth_user(
@@ -94,6 +122,8 @@ def google_callback():
         avatar_url=profile.get("picture"),
     )
     token = issue_token(user.id)
+    if popup:
+        return jsonify({"token": token, "user": user.to_dict()})
     if not user.username:
         return redirect(_complete_oauth_signup_redirect(token, user.email or ""))
     return redirect(f"{_frontend_redirect(token)}")
@@ -257,13 +287,9 @@ def _upsert_oauth_user(provider: str, subject: str | None, email: str | None, av
 
 
 def _frontend_redirect(token: str) -> str:
-    from flask import current_app
-
     return f"{current_app.config['FRONTEND_URL']}/#/auth/callback?token={token}"
 
 
 def _complete_oauth_signup_redirect(token: str, email: str) -> str:
-    from flask import current_app
-
     encoded_email = quote(email or "")
     return f"{current_app.config['FRONTEND_URL']}/#/auth/complete-oauth?token={token}&email={encoded_email}"

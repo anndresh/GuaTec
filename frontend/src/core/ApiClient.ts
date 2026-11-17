@@ -33,8 +33,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** Minimal REST helper shared by every `src/api/*.ts` module. */
 export const ApiClient = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: "POST", body: data !== undefined ? JSON.stringify(data) : undefined }),
+  post: <T>(path: string, data?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: "POST", body: data !== undefined ? JSON.stringify(data) : undefined, headers }),
   put: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PUT", body: data !== undefined ? JSON.stringify(data) : undefined }),
 };

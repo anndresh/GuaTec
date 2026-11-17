@@ -51,7 +51,7 @@ def github_authorize_url(state: str) -> str:
     return f"https://github.com/login/oauth/authorize?{query}"
 
 
-def exchange_google_code(code: str) -> dict:
+def exchange_google_code(code: str, *, redirect_uri: str | None = None) -> dict:
     """Exchange an OAuth code for a Google user profile.
 
     Kept as a single, isolated network call so it can be mocked in tests and
@@ -64,7 +64,7 @@ def exchange_google_code(code: str) -> dict:
             "code": code,
             "client_id": cfg["GOOGLE_CLIENT_ID"],
             "client_secret": cfg["GOOGLE_CLIENT_SECRET"],
-            "redirect_uri": cfg["GOOGLE_REDIRECT_URI"],
+            "redirect_uri": redirect_uri or cfg["GOOGLE_REDIRECT_URI"],
             "grant_type": "authorization_code",
         },
         timeout=10,
