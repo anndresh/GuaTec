@@ -24,7 +24,10 @@ def list_missions():
     for mission in missions:
         progress = progress_by_mission.get(mission.id)
         payload = mission.to_dict()
-        if progress:
+        if not mission.is_released:
+            payload["status"] = "locked"
+            payload["progressPercent"] = 0.0
+        elif progress:
             payload["status"] = progress.status
             payload["progressPercent"] = progress.progress_percent
         else:

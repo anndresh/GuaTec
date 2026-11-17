@@ -4,6 +4,12 @@ from datetime import datetime, timezone
 from app.extensions import db
 
 
+UNRELEASED_MISSION_SLUGS = frozenset({
+    "mission-2-deep-exploration",
+    "mission-3-outpost",
+})
+
+
 class Mission(db.Model):
     """Static catalogue entry describing a playable mission.
 
@@ -20,6 +26,10 @@ class Mission(db.Model):
     subtitle = db.Column(db.String(256), nullable=True)
     description = db.Column(db.Text, nullable=True)
     is_locked_by_default = db.Column(db.Boolean, default=True)
+
+    @property
+    def is_released(self) -> bool:
+        return self.slug not in UNRELEASED_MISSION_SLUGS
 
     def to_dict(self) -> dict:
         return {

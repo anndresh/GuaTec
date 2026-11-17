@@ -22,7 +22,7 @@ MISSION_SEED = [
         "order_index": 2,
         "title": "Misión 2: Exploración Profunda",
         "subtitle": "Próximamente",
-        "description": "Se desbloquea al completar la Misión 1.",
+        "description": None,
         "is_locked_by_default": True,
     },
     {
@@ -30,7 +30,7 @@ MISSION_SEED = [
         "order_index": 3,
         "title": "Misión 3: Avanzada Permanente",
         "subtitle": "Próximamente",
-        "description": "Se desbloquea al completar la Misión 2.",
+        "description": None,
         "is_locked_by_default": True,
     },
 ]

@@ -24,10 +24,16 @@ def _get_or_create_progress(user_id: str, mission: Mission) -> MissionProgress:
     return progress
 
 
+def _unreleased_mission():
+    return jsonify({"error": "mission_locked", "message": "Disponible próximamente en esta demo."}), 409
+
+
 @progress_bp.get("/<string:mission_slug>")
 @login_required
 def get_progress(mission_slug: str):
     mission = Mission.query.filter_by(slug=mission_slug).first_or_404()
+    if not mission.is_released:
+        return _unreleased_mission()
     progress = _get_or_create_progress(g.current_user.id, mission)
     return jsonify(progress.to_dict())
 
@@ -39,6 +45,8 @@ def autosave_progress(mission_slug: str):
     gameplay snapshot (resources, decisions, elapsed time...) here so a
     reload can resume exactly where the player left off."""
     mission = Mission.query.filter_by(slug=mission_slug).first_or_404()
+    if not mission.is_released:
+        return _unreleased_mission()
     progress = _get_or_create_progress(g.current_user.id, mission)
 
     data = request.get_json(silent=True) or {}
@@ -77,8 +85,10 @@ def autosave_progress(mission_slug: str):
 @login_required
 def complete_mission(mission_slug: str):
     """Marks a mission complete and stores its final report, then unlocks
-    the next mission in ``order_index`` order."""
+    the next mission in ``order_index`` order once it has been released."""
     mission = Mission.query.filter_by(slug=mission_slug).first_or_404()
+    if not mission.is_released:
+        return _unreleased_mission()
     progress = _get_or_create_progress(g.current_user.id, mission)
 
     data = request.get_json(silent=True) or {}
@@ -95,13 +105,15 @@ def complete_mission(mission_slug: str):
         .order_by(Mission.order_index.asc())
         .first()
     )
-    if next_mission is not None:
+    unlocked_next = None
+    if next_mission is not None and next_mission.is_released:
         next_progress = _get_or_create_progress(g.current_user.id, next_mission)
         if next_progress.status == "locked":
             next_progress.status = "unlocked"
             db.session.commit()
+        unlocked_next = next_mission.slug
 
-    return jsonify({"progress": progress.to_dict(), "unlockedNext": next_mission.slug if next_mission else None})
+    return jsonify({"progress": progress.to_dict(), "unlockedNext": unlocked_next})
 
 
 @progress_bp.post("/<string:mission_slug>/replay")
@@ -109,6 +121,8 @@ def complete_mission(mission_slug: str):
 def replay_mission(mission_slug: str):
     """Reset a mission's playable state while preserving campaign unlocks."""
     mission = Mission.query.filter_by(slug=mission_slug).first_or_404()
+    if not mission.is_released:
+        return _unreleased_mission()
     progress = _get_or_create_progress(g.current_user.id, mission)
     if progress.status == "locked":
         return jsonify({"error": "mission_locked", "message": "Completa las misiones anteriores primero."}), 409

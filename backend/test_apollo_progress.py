@@ -178,7 +178,7 @@ class ApolloProgressTests(unittest.TestCase):
         self.assertEqual(saved["report"], {"summary": "Legacy report"})
         self.assertIsNotNone(saved["completedAt"])
 
-    def test_complete_stores_report_and_unlocks_next_without_overwriting_its_state(self) -> None:
+    def test_complete_stores_report_and_leaves_future_missions_locked(self) -> None:
         next_row = self.row(NEXT)
         next_row.state_json = {"retained": ["campaign-unlock"]}
         other_row = self.row(OTHER)
@@ -197,16 +197,36 @@ class ApolloProgressTests(unittest.TestCase):
         )
         self.assertEqual(completed.status_code, 200)
         result = completed.get_json()
-        self.assertEqual(result["unlockedNext"], NEXT)
+        self.assertIsNone(result["unlockedNext"])
         self.assertEqual(result["progress"]["status"], "completed")
         self.assertEqual(result["progress"]["progressPercent"], 100)
         self.assertEqual(result["progress"]["state"], state)
         self.assertEqual(result["progress"]["report"], report)
         self.assertIsNotNone(result["progress"]["completedAt"])
         db.session.expire_all()
-        self.assertEqual(self.row(NEXT).status, "unlocked")
+        self.assertEqual(self.row(NEXT).status, "locked")
         self.assertEqual(self.row(NEXT).state_json, {"retained": ["campaign-unlock"]})
         self.assertEqual(self.row(OTHER).to_dict(), other_before)
+        catalogue = self.client.get("/api/missions", headers=self.headers).get_json()["missions"]
+        self.assertEqual([mission["status"] for mission in catalogue], ["completed", "locked", "locked"])
+
+    def test_future_missions_stay_locked_for_existing_progress(self) -> None:
+        before = self.seed_other_progress()
+        catalogue = self.client.get("/api/missions", headers=self.headers).get_json()["missions"]
+        for mission in catalogue[1:]:
+            self.assertEqual(mission["status"], "locked")
+            self.assertEqual(mission["progressPercent"], 0)
+            self.assertEqual(mission["subtitle"], "Próximamente")
+            self.assertIsNone(mission["description"])
+
+        for slug in (NEXT, OTHER):
+            path = "/api/progress/" + slug
+            for method, suffix in (("GET", ""), ("PUT", ""), ("POST", "/complete"), ("POST", "/replay")):
+                with self.subTest(mission=slug, method=method, suffix=suffix):
+                    response = self.client.open(path + suffix, method=method, headers=self.headers, json={})
+                    self.assertEqual(response.status_code, 409)
+                    self.assertEqual(response.get_json()["error"], "mission_locked")
+        self.assert_other_progress_unchanged(before)
 
     def test_existing_apollo_completion_is_not_migrated_again_by_autosave(self) -> None:
         self.save(apollo_snapshot(done=True), 100)
