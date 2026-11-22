@@ -8,6 +8,7 @@ import type { Screen } from "@/screens/Screen";
 import type { MissionDTO } from "@/types";
 import type { NasaMissionBriefing } from "@/types";
 import { getLanguage, t } from "@/core/i18n";
+import {missionSelectText as copy} from "./MissionSelectCopy";
 
 const STATUS_LABEL: Record<MissionDTO["status"], string> = {
   locked: "Bloqueada",
@@ -28,78 +29,74 @@ function formatStoryDate(value: string | null): string | null {
 /** Mission carousel: shows the 3 missions with lock state and progress. */
 export class MissionSelectScreen implements Screen {
   private nasaCarouselTimer: number | undefined;
+  private disposed=false;
+  private requestId=0;
+  private opening=false;
   constructor(private app: GameApp) {}
 
   async mount(container: HTMLElement): Promise<void> {
-    const panel = el("div", { className: "screen mission-select-screen" });
-    const header = el("div", { className: "mission-select-header" });
-    const actions = el("div", { className: "mission-select-actions" });
-    actions.append(
-      el("button", { className: "btn btn-ghost", text: t("Cerrar sesión"), attrs: { type: "button" } }),
-    );
-    header.append(
-      el("h2", {
-        className: "screen-title",
-        text: `${t("Comandante")} ${this.app.currentUser?.username ?? ""}`,
-      }),
-      actions,
-    );
-    actions.querySelector("button")!.addEventListener("click", () => this.app.logout());
+    this.disposed=false;
+    const panel=el("section",{className:"screen mission-select-screen"});
+    const header=el("header",{className:"mission-select-header"});
+    const identity=el("div",{className:"mission-select-identity"});
+    identity.append(el("small",{className:"mission-select-kicker",text:"GUATEC · "+copy("Operaciones de misión")}),el("h2",{className:"screen-title",text:copy("Centro de misiones")}),el("p",{className:"mission-select-user",text:`${t("Comandante")} ${this.app.currentUser?.username??""}`}));
+    const actions=el("div",{className:"mission-select-actions"});
+    const logout=el("button",{className:"btn btn-ghost",text:t("Cerrar sesión"),attrs:{type:"button"}});
+    logout.addEventListener("click",()=>{if(!this.opening)this.app.logout()});actions.append(logout);header.append(identity,actions);
+    const carousel=el("div",{className:"mission-carousel",attrs:{id:"mission-carousel"}});
+    const feedback=el("div",{className:"mission-select-feedback",attrs:{"aria-live":"polite"}});
+    panel.append(header,feedback,carousel);container.append(panel);
+    const load=async()=>{
+      const request=++this.requestId;
+      feedback.replaceChildren(loadingFeedback(t("Cargando...")));carousel.replaceChildren();
+      try{
+        const response=await missionsApi.list();if(this.disposed||request!==this.requestId)return;
+        feedback.replaceChildren();
+        const primary=response.missions.find(mission=>mission.slug===MISSION_SLUGS.mission1);
+        if(primary)carousel.append(this.renderMission(primary,feedback));
+        const future=response.missions.filter(mission=>mission.slug!==MISSION_SLUGS.mission1).sort((a,b)=>a.order-b.order);
+        if(future.length){const group=el("section",{className:"mission-future-group"});group.append(el("h3",{className:"mission-future-heading",text:copy("Misiones futuras")}));const list=el("div",{className:"mission-future-list"});for(const mission of future)list.append(this.renderMission(mission,feedback));group.append(list);carousel.append(group)}
+        if(!response.missions.length)showFailure(copy("No hay misiones disponibles."));
+      }catch{if(!this.disposed&&request===this.requestId)showFailure(t("No se pudo conectar con el servidor."));}
+    };
+    const showFailure=(message:string)=>{
+      feedback.replaceChildren();const error=el("div",{className:"mission-select-error",attrs:{role:"alert"}});
+      const retry=el("button",{className:"mission-retry",text:copy("Reintentar"),attrs:{type:"button"}});retry.addEventListener("click",()=>void load());error.append(el("p",{text:message}),retry);feedback.append(error);
+    };
+    // NASA content is independent: its request cannot delay mission selection.
+    void nasaApi.missionBriefing().then(briefing=>{if(!this.disposed&&panel.isConnected)this.renderNasaBriefing(panel,briefing)}).catch(()=>{});
+    await load();
+  }
 
-    const carousel = el("div", { className: "mission-carousel", attrs: { id: "mission-carousel" } });
-    const loading = loadingFeedback(t("Cargando..."));
-    panel.append(header, loading, carousel);
-    container.append(panel);
-
-    let missions: MissionDTO[] = [];
-    try {
-      const res = await missionsApi.list();
-      missions = res.missions;
-    } catch {
-      loading.remove();
-      carousel.append(el("p", { className: "form-error", text: t("No se pudo conectar con el servidor.") }));
-      return;
+  private renderMission(mission:MissionDTO,feedback:HTMLElement):HTMLElement {
+    const primary=mission.slug===MISSION_SLUGS.mission1,playable=primary&&mission.status!=="locked";
+    const card=el("article",{className:`mission-card ${primary?"mission-card--featured":"mission-card--future"}${playable?"":" mission-card--locked"}`});
+    card.dataset.mission=mission.slug;card.dataset.status=mission.status;
+    if(primary){
+      const image=el("img",{className:"mission-card-preview",attrs:{src:"/assets/apollo/kennedy-operations.png",alt:copy("Vista del escenario de Apollo 11 en Kennedy"),decoding:"async"}});card.append(image,el("span",{className:"mission-card-image-label",text:copy("Escenario de la misión")}));
     }
-    loading.remove();
-
-    for (const mission of missions) {
-      const locked = mission.status === "locked";
-      const card = el("div", { className: `mission-card ${locked ? "mission-card--locked" : ""}` });
-      card.tabIndex = locked ? -1 : 0;
-      card.setAttribute("role", "button");
-      card.setAttribute("aria-disabled", String(locked));
-      card.append(
-        el("h3", { className: "mission-card-title", text: mission.slug === MISSION_SLUGS.mission1 ? apolloText("Misión 01: Apollo 11") : t(mission.title) }),
-        el("p", { className: "mission-card-subtitle", text: mission.slug === MISSION_SLUGS.mission1 ? apolloText("El comienzo de una nueva era · 16 de julio de 1969") : t(mission.subtitle ?? "") }),
-        el("p", { className: "mission-card-description", text: mission.slug === MISSION_SLUGS.mission1 ? apolloText("Kennedy Space Center. Completa operaciones de apoyo, observa el traslado de la tripulación y presencia el lanzamiento del Saturn V.") : t(mission.description ?? "") }),
-        el("div", { className: "mission-card-status", text: t(STATUS_LABEL[mission.status]) }),
-      );
-
-      if (mission.progressPercent > 0 && mission.progressPercent < 100) {
-        const bar = el("div", { className: "progress-bar" });
-        const fill = el("div", { className: "progress-bar-fill" });
-        fill.style.width = `${mission.progressPercent}%`;
-        bar.append(fill);
-        card.append(bar);
+    const content=el("div",{className:"mission-card-content"});
+    content.append(el("small",{className:"mission-card-kicker",text:primary?"KENNEDY SPACE CENTER · 1969":copy("Contenido en preparación")}),el("h3",{className:"mission-card-title",text:primary?apolloText("Misión 01: Apollo 11"):t(mission.title)}));
+    if(primary){
+      content.append(el("p",{className:"mission-card-subtitle",text:apolloText("El comienzo de una nueva era · 16 de julio de 1969")}),el("p",{className:"mission-card-description",text:apolloText("Kennedy Space Center. Completa operaciones de apoyo, observa el traslado de la tripulación y presencia el lanzamiento del Saturn V.")}));
+      const percent=Number.isFinite(mission.progressPercent)?Math.max(0,Math.min(100,Math.round(mission.progressPercent))):0;
+      const progress=el("div",{className:"mission-progress"});
+      const row=el("div",{className:"mission-progress-heading"});row.append(el("span",{className:"mission-card-status",text:t(STATUS_LABEL[mission.status])}),el("span",{className:"mission-progress-value",text:percent+"%"}));
+      const bar=el("div",{className:"progress-bar",attrs:{role:"progressbar","aria-label":copy("Progreso de misión"),"aria-valuemin":"0","aria-valuemax":"100","aria-valuenow":String(percent)}}),fill=el("div",{className:"progress-bar-fill"});fill.style.width=percent+"%";bar.append(fill);progress.append(row,bar);content.append(progress);
+      if(playable){
+        const cta=el("span",{className:"mission-card-cta",text:copy(mission.status==="completed"?"Revisar misión":mission.status==="in_progress"?"Continuar misión":"Comenzar misión")+"  ↗"});content.append(cta);
+        card.tabIndex=0;card.setAttribute("role","button");card.setAttribute("aria-label",apolloText("Misión 01: Apollo 11"));
+        const open=async()=>{
+          if(this.opening||this.disposed)return;this.opening=true;card.setAttribute("aria-busy","true");cta.textContent=copy("Abriendo misión…");
+          try{await this.app.showMission1()}catch{if(!this.disposed){feedback.replaceChildren(el("p",{className:"form-error",text:copy("No se pudo abrir la misión. Intenta de nuevo."),attrs:{role:"alert"}}));cta.textContent=copy(mission.status==="completed"?"Revisar misión":mission.status==="in_progress"?"Continuar misión":"Comenzar misión")+"  ↗";card.removeAttribute("aria-busy")}}finally{this.opening=false}
+        };
+        card.addEventListener("click",()=>void open());card.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();if(!event.repeat)void open()}});
       }
-
-      if (!locked && mission.slug === MISSION_SLUGS.mission1) {
-        const openMission = () => void this.app.showMission1();
-        card.addEventListener("click", openMission);
-        card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openMission(); } });
-      } else if (!locked) {
-        card.append(el("p", { className: "mission-card-note", text: t("Disponible próximamente en esta demo.") }));
-      }
-
-      carousel.append(card);
+    }else{
+      content.append(el("p",{className:"mission-card-description",text:t("Disponible próximamente en esta demo.")}),el("span",{className:"mission-card-status",text:t("Próximamente")}));
+      const lock=el("span",{className:"mission-future-lock",text:"Ⅱ",attrs:{"aria-hidden":"true"}});card.append(lock);
     }
-
-    try {
-      const briefing = await nasaApi.missionBriefing();
-      this.renderNasaBriefing(panel, briefing);
-    } catch (error) {
-      console.warn("NASA mission briefing is currently unavailable.", error);
-    }
+    card.append(content);return card;
   }
 
   private renderNasaBriefing(panel: HTMLElement, briefing: NasaMissionBriefing): void {
@@ -244,10 +241,12 @@ export class MissionSelectScreen implements Screen {
     );
     renderSlide(0);
     this.nasaCarouselTimer = window.setInterval(() => renderSlide(activeIndex + 1), 9000);
-    panel.insertBefore(card, panel.querySelector("#mission-carousel"));
+    panel.append(card);
   }
 
   unmount(): void {
+    this.disposed=true;this.requestId++;
     if (this.nasaCarouselTimer !== undefined) window.clearInterval(this.nasaCarouselTimer);
+    this.nasaCarouselTimer=undefined;
   }
 }

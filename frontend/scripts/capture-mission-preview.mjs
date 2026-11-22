@@ -1,0 +1,6 @@
+import {createRequire} from 'node:module';
+import {mkdir} from 'node:fs/promises';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH),browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN});
+const page=await browser.newPage({viewport:{width:1200,height:720}});
+await page.route('**/selector-preview-capture',r=>r.fulfill({contentType:'text/html',body:`<style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden}</style><div id="world"></div><script type="module">import {ApolloWorld} from '/src/apollo/ApolloWorld.ts';window.world=new ApolloWorld(document.querySelector('#world'),{onInteract(){},onMap(){}});await world.ready;world.setSuspended(true);world.camera.position.set(200,85,350);world.camera.lookAt(-80,40,30);world.camera.updateMatrixWorld();world.renderer.shadowMap.needsUpdate=true;world.renderer.render(world.scene,world.camera);window.ready=true;</script>`}));
+await page.goto('http://127.0.0.1:5173/selector-preview-capture');await page.waitForFunction(()=>window.ready,undefined,{timeout:60000});await page.waitForTimeout(300);await mkdir('artifacts/mission-selector',{recursive:true});await page.screenshot({path:'artifacts/mission-selector/kennedy-preview.png'});await browser.close();
